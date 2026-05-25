@@ -5,6 +5,9 @@ const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
 const logger = require('firebase-functions/logger')
 
+// Import voice message cleanup functions
+const voiceCleanup = require('./deleteExpiredVoiceMessages.js')
+
 initializeApp()
 
 /**
@@ -86,3 +89,7 @@ exports.onChatMessage = onValueCreated(
     }
   }
 )
+
+// Export voice message cleanup functions
+exports.deleteExpiredVoiceMessages = voiceCleanup.deleteExpiredVoiceMessages
+exports.cleanupExpiredVoiceMessagesHttp = voiceCleanup.cleanupExpiredVoiceMessagesHttp

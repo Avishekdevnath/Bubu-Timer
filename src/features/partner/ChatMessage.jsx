@@ -1,6 +1,8 @@
 import { useRef, useState, useEffect } from 'react'
 import { Check, CheckCheck, Pin, Reply, Star } from 'lucide-react'
 import { MessageContent } from './MessageContent.jsx'
+import { VoicePlayer } from './VoicePlayer.jsx'
+import { AttachmentPreview } from './AttachmentPreview.jsx'
 
 const SWIPE_THRESHOLD = 60  // px to trigger reply
 const SWIPE_MAX = 100       // visual cap
@@ -118,7 +120,27 @@ export function ChatMessage({
               </div>
             )}
 
-            <MessageContent text={msg.text} />
+            {msg.type === 'voice' ? (
+              <div className="my-1">
+                <VoicePlayer audioUrl={msg.audioUrl} duration={msg.duration} isMe={isMe} />
+              </div>
+            ) : (
+              <>
+                {msg.text && <MessageContent text={msg.text} />}
+                {msg.attachments && msg.attachments.length > 0 && (
+                  <div className={`flex flex-wrap gap-2 ${msg.text ? 'mt-2' : ''}`}>
+                    {msg.attachments.map((attachment) => (
+                      <AttachmentPreview
+                        key={attachment.imageUrl}
+                        attachment={attachment}
+                        isMe={isMe}
+                        isPreview={false}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Pin/Star badges */}
             {(isPinned || isStarred) && (

@@ -318,7 +318,7 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
                 </button>
               )}
               </div>
-              <ChatInput partnerName={pair.partnerNick || d.name} onSend={sendMessage} replyingTo={replyingTo} cancelReply={cancelReply} onTyping={notifyTyping} />
+              <ChatInput partnerName={pair.partnerNick || d.name} onSend={sendMessage} replyingTo={replyingTo} cancelReply={cancelReply} onTyping={notifyTyping} roomCode={pair.roomCode} />
             </div>
           )}
 

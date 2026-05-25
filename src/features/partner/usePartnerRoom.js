@@ -192,14 +192,35 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
   }
 
   /* ── Messages ── */
-  async function sendMessage(text) {
-    if (!text.trim() || !pair.roomCode) return
+  async function sendMessage(msgData) {
+    if (!pair.roomCode) return
+
+    // Handle text (string), voice messages (object), or attachments (object with attachments)
+    const isVoice = typeof msgData === 'object' && msgData.type === 'voice'
+    const isAttachment = typeof msgData === 'object' && msgData.attachments && msgData.attachments.length > 0
+    const isText = typeof msgData === 'string'
+
+    if (isText && !msgData.trim()) return
+    if (isVoice && (!msgData.audioUrl || !msgData.duration)) return
+    if (isAttachment && !msgData.attachments.length) return
+
     const msg = {
-      text: text.trim(),
       sender: pair.mySlot,
       senderName: currentUser?.username || currentUser?.email || 'Me',
       ts: Date.now(),
     }
+
+    if (isText) {
+      msg.text = msgData.trim()
+    } else if (isVoice) {
+      msg.type = 'voice'
+      msg.audioUrl = msgData.audioUrl
+      msg.duration = msgData.duration
+    } else if (isAttachment) {
+      msg.text = msgData.text || ''
+      msg.attachments = msgData.attachments
+    }
+
     if (replyingTo) {
       msg.replyTo = {
         id: replyingTo.id,
@@ -207,6 +228,7 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
         text: (replyingTo.text || '').slice(0, 120),
       }
     }
+
     await api.sendMessage(pair.roomCode, msg)
     setReplyingTo(null)
     stopTyping()

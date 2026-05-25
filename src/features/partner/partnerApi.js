@@ -1,5 +1,6 @@
 import { get, push, ref, remove, update } from 'firebase/database'
-import { database } from '../../lib/firebase.js'
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { database, storage } from '../../lib/firebase.js'
 
 export const MAX_PINS = 15
 
@@ -18,6 +19,67 @@ export function deleteForEveryone(code, msgId) {
 
 export function deleteForMe(code, slot, msgId) {
   return update(ref(database, `rooms/${code}/${slot}/deletedMsgs`), { [msgId]: true })
+}
+
+/**
+ * Upload voice message blob to Firebase Storage
+ * @param {string} roomCode - Room code
+ * @param {Blob} blob - Audio blob (webm format)
+ * @param {number} duration - Recording duration in seconds
+ * @returns {Promise<{audioUrl: string, duration: number}>}
+ */
+export async function uploadVoice(roomCode, blob, duration) {
+  const timestamp = Date.now()
+  const path = `voiceMsgs/${roomCode}/${timestamp}.webm`
+  
+  try {
+    const ref = storageRef(storage, path)
+    await uploadBytes(ref, blob, { contentType: 'audio/webm' })
+    const audioUrl = await getDownloadURL(ref)
+    
+    return { audioUrl, duration }
+  } catch (err) {
+    console.error('Failed to upload voice message:', err)
+    throw err
+  }
+}
+
+/**
+ * Upload image attachment to Firebase Storage
+ * @param {string} roomCode - Room code
+ * @param {File} file - Image file
+ * @param {function} onProgress - Progress callback (0-100)
+ * @returns {Promise<{imageUrl: string, fileName: string, size: number}>}
+ */
+export async function uploadAttachment(roomCode, file, onProgress = () => {}) {
+  const timestamp = Date.now()
+  const fileExtension = file.name.split('.').pop()
+  const fileName = `img_${timestamp}.${fileExtension}`
+  const path = `attachments/${roomCode}/${fileName}`
+
+  try {
+    const fileRef = storageRef(storage, path)
+    
+    // Upload with progress tracking
+    const task = uploadBytes(fileRef, file, { contentType: file.type })
+    
+    // For client-side, we track based on file size chunks
+    onProgress(50)
+    await task
+    onProgress(80)
+    
+    const imageUrl = await getDownloadURL(fileRef)
+    onProgress(100)
+
+    return {
+      imageUrl,
+      fileName: file.name,
+      size: file.size,
+    }
+  } catch (err) {
+    console.error('Failed to upload attachment:', err)
+    throw err
+  }
 }
 
 /* ── Reactions ── */
