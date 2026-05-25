@@ -196,7 +196,6 @@ function App() {
     // Complete Google redirect sign-in if returning from redirect
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('[Auth] onAuthStateChanged fired', user ? { uid: user.uid, email: user.email, provider: user.providerData?.[0]?.providerId } : 'null')
       if (!user) {
         cloudUidRef.current = null
         setCurrentUser((prev) => (prev?.isGuest ? prev : null))
@@ -206,7 +205,6 @@ function App() {
       const baseProfile = { uid: user.uid, email: user.email, username: user.displayName || '', partnerName: '', photoURL: user.photoURL || '' }
       cloudUidRef.current = user.uid
       setCurrentUser(baseProfile)
-      console.log('[Auth] Setting currentUser (base)', baseProfile)
       try {
         const userRef = doc(firestore, 'users', user.uid)
         const snap = await getDoc(userRef)
@@ -215,7 +213,6 @@ function App() {
         }
         const data = snap.exists() ? snap.data() : {}
         const profile = { uid: user.uid, email: user.email, username: data.username || user.displayName || '', partnerName: data.partnerName || '', photoURL: data.photoURL || user.photoURL || '' }
-        console.log('[Auth] Setting currentUser (full)', profile)
         setCurrentUser(profile)
 
         // Pull cloud state. Compare to local savedAt; newer wins (LWW).
@@ -242,7 +239,7 @@ function App() {
           queueCloudPush(user.uid, appState)
         }
       } catch (error) {
-        console.error('[Auth] Firestore error', error.code, error.message)
+        // Silently handle Firestore errors
       }
     })
     return unsubscribe
@@ -405,9 +402,7 @@ function App() {
     if (!signupEmail || !signupPassword || !signupUsername) return showToast('Email, password, and username required', 'bank-t')
     if (signupPassword.length < 6) return showToast('Password must be at least 6 characters', 'bank-t')
     try {
-      console.log('[Auth] Signing up', signupEmail)
       const cred = await createUserWithEmailAndPassword(auth, signupEmail, signupPassword)
-      console.log('[Auth] Signup success', cred.user.uid)
       await setDoc(doc(firestore, 'users', cred.user.uid), {
         email: signupEmail,
         username: signupUsername,
@@ -425,9 +420,7 @@ function App() {
     event.preventDefault()
     if (!authForms.loginEmail || !authForms.loginPassword) return showToast('Email and password required', 'bank-t')
     try {
-      console.log('[Auth] Logging in', authForms.loginEmail)
       const cred = await signInWithEmailAndPassword(auth, authForms.loginEmail, authForms.loginPassword)
-      console.log('[Auth] Login success', cred.user.uid)
       setAuthForms((forms) => ({ ...forms, loginEmail: '', loginPassword: '' }))
       showToast('Logged in', 'study-t')
     } catch (error) {
@@ -438,15 +431,12 @@ function App() {
 
   async function loginWithGoogle() {
     try {
-      console.log('[Auth] starting signInWithPopup...')
       const provider = new GoogleAuthProvider()
       provider.setCustomParameters({ prompt: 'select_account' })
       const cred = await signInWithPopup(auth, provider)
-      console.log('[Auth] signInWithPopup success', cred.user.uid)
     } catch (error) {
       if (error?.code === 'auth/popup-closed-by-user') return
       if (error?.code === 'auth/cancelled-popup-request') return
-      console.error('[Auth] signInWithPopup ERROR', error.code, error.message)
       showToast(error.message || 'Google sign-in failed', 'bank-t')
     }
   }
@@ -499,7 +489,7 @@ function App() {
           ))}
         </nav>
         <div className="p-4 border-t border-stone-100">
-          <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-xl border border-stone-100 shadow-sm">
+          <NavLink to="/account" className="flex items-center gap-3 bg-white px-3 py-2 rounded-xl border border-stone-100 shadow-sm hover:bg-stone-50 hover:border-stone-200 transition-colors cursor-pointer">
             <div className="w-7 h-7 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 shrink-0">
               <User size={13} />
             </div>
@@ -507,7 +497,7 @@ function App() {
               <p className="text-xs font-semibold text-stone-800 truncate">{currentUser?.username || currentUser?.email || 'Not signed in'}</p>
               <p className="text-[10px] text-stone-400">{currentUser?.isGuest ? 'Guest' : currentUser ? 'Signed in' : 'Tap Account'}</p>
             </div>
-          </div>
+          </NavLink>
         </div>
       </aside>
 
