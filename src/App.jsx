@@ -134,12 +134,12 @@ function App() {
         gain.connect(ctx.destination)
         osc.type = 'sine'
         osc.frequency.value = freq
-        const start = ctx.currentTime + i * 0.12
+        const start = ctx.currentTime + i * 0.13
         gain.gain.setValueAtTime(0, start)
-        gain.gain.linearRampToValueAtTime(0.9, start + 0.01)
-        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.35)
+        gain.gain.linearRampToValueAtTime(1.0, start + 0.01)
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.55)
         osc.start(start)
-        osc.stop(start + 0.36)
+        osc.stop(start + 0.56)
       })
     } catch { /* ignore */ }
   }

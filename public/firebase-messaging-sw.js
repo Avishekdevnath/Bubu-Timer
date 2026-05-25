@@ -28,7 +28,9 @@ messaging.onBackgroundMessage((payload) => {
     badge: '/icon-192.png',
     tag: 'bubu-chat',
     data: { url },
-    vibrate: [120, 60, 120],
+    vibrate: [200, 100, 200, 100, 200],
+    silent: false,
+    requireInteraction: true,
   })
 })
 

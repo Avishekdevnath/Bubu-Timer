@@ -116,15 +116,13 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
         if (latest && latest.sender !== mySlot) {
           playChatPing()
           clearTimeout(notifTimerRef.current)
-          notifTimerRef.current = setTimeout(() => {
-            if (window.location.pathname !== '/buddy' && Notification.permission === 'granted') {
-              new Notification('New message from study partner', {
-                body: latest.text,
-                icon: '/icon-192.png',
-                tag: 'bubu-chat',
-              })
-            }
-          }, 60 * 1000)
+          if (window.location.pathname !== '/buddy' && Notification.permission === 'granted') {
+            new Notification('New message from study partner', {
+              body: latest.text,
+              icon: '/icon-192.png',
+              tag: 'bubu-chat',
+            })
+          }
         }
       }
       firstLoad = false
