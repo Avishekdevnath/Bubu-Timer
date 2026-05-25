@@ -18,6 +18,7 @@ import {
 } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { auth, firestore } from './lib/firebase.js'
+import { registerPushToken, subscribeForegroundMessages } from './lib/messaging.js'
 import { pad } from './lib/format.js'
 import { todayStr } from './lib/dates.js'
 import { loadStoredState, loadThemeValue, saveStoredState, saveThemeValue } from './lib/storage.js'
@@ -171,6 +172,16 @@ function App() {
     }))
   }
 
+  // FCM foreground messages — show as toast
+  useEffect(() => {
+    let unsub = () => {}
+    subscribeForegroundMessages((payload) => {
+      const data = payload.data || {}
+      showToast(`${data.title || 'Message'}: ${data.body || ''}`.slice(0, 80), 'study-t')
+    }).then((fn) => { unsub = fn })
+    return () => unsub()
+  }, [])
+
   // Unlock AudioContext on first user interaction anywhere in the app
   useEffect(() => {
     function unlock() {
@@ -206,6 +217,8 @@ function App() {
       const baseProfile = { uid: user.uid, email: user.email, username: user.displayName || '', partnerName: '', photoURL: user.photoURL || '' }
       cloudUidRef.current = user.uid
       setCurrentUser(baseProfile)
+      // Register for push notifications (fire-and-forget)
+      registerPushToken(user.uid).catch(() => {})
       try {
         const userRef = doc(firestore, 'users', user.uid)
         const snap = await getDoc(userRef)

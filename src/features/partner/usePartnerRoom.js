@@ -44,6 +44,7 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     const subj = getActiveSubject(appState)
     const ch = getActiveChapter(appState)
     update(myRef, {
+      uid: currentUser?.uid || null,
       name: myName || currentUser?.username || currentUser?.email || 'Partner',
       online: true,
       mode: appState.mode,
