@@ -30,6 +30,14 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
 
   function submit(e) {
     if (e) e.preventDefault()
+    
+    // If there are attachments, use attachment handler instead
+    if (selectedFiles.length > 0) {
+      handleSendWithAttachments()
+      return
+    }
+    
+    // Otherwise, send text message
     if (!val.trim()) return
     onSend(val)
     setVal('')
@@ -219,8 +227,7 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
       />
       <button
         type="submit"
-        disabled={(!val.trim() && !selectedFiles.length) || isRecording || isUploadingVoice}
-        onClick={selectedFiles.length > 0 ? handleSendWithAttachments : undefined}
+        disabled={(!val.trim() && !selectedFiles.length) || isRecording || isUploadingVoice || isUploadingFiles}
         className="w-9 h-9 bg-stone-900 text-white rounded-xl flex items-center justify-center hover:bg-stone-800 disabled:opacity-40 transition-colors flex-shrink-0"
       >
         {isUploadingFiles ? (
