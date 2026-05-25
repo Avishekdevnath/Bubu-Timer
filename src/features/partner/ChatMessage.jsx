@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { Check, CheckCheck, Pin, Reply, Star } from 'lucide-react'
 import { MessageContent } from './MessageContent.jsx'
 
@@ -9,11 +9,12 @@ export function ChatMessage({
   msg, idx, isMe, myUid, blurred, msgRef,
   activeReactionId, setActiveReactionId,
   editingMsgId, editText, setEditText, setEditingMsgId,
-  isPinned, isStarred, partnerLastReadTs,
+  isPinned, isStarred, partnerLastReadTs, partnerLastDeliveredTs,
   onReact, onEdit, onCopy, onDeleteForMe, onDeleteForEveryone,
   onPin, onStar, onReply, onJumpToReply,
 }) {
   const isRead = isMe && partnerLastReadTs && msg.ts && partnerLastReadTs >= msg.ts
+  const isDelivered = isMe && !isRead && partnerLastDeliveredTs && msg.ts && partnerLastDeliveredTs >= msg.ts
 
   // Swipe-right to reply (touch only)
   const touchStart = useRef({ x: 0, y: 0, valid: false })
@@ -49,6 +50,21 @@ export function ChatMessage({
     : {}
   const reactionEntries = Object.entries(reactionCounts)
   const isEditing = editingMsgId === msg.id
+  const bubbleRef = useRef(null)
+  const [pickerPos, setPickerPos] = useState(null)
+
+  useEffect(() => {
+    if (activeReactionId !== msg.id || !bubbleRef.current) { setPickerPos(null); return }
+    const r = bubbleRef.current.getBoundingClientRect()
+    const menuH = 280 // approx menu height
+    const pad = 8
+    const spaceBelow = window.innerHeight - r.bottom
+    const top = spaceBelow >= menuH + pad ? r.bottom + pad : Math.max(pad, r.top - menuH - pad)
+    const left = isMe
+      ? Math.max(pad, r.right - 256)
+      : Math.min(r.left, window.innerWidth - 256 - pad)
+    setPickerPos({ top, left })
+  }, [activeReactionId, msg.id, isMe])
 
   return (
     <div
@@ -85,6 +101,7 @@ export function ChatMessage({
           </div>
         ) : (
           <div
+            ref={bubbleRef}
             data-msg-bubble
             onClick={() => setActiveReactionId(activeReactionId === msg.id ? null : msg.id)}
             className={`max-w-[72vw] md:max-w-md px-4 py-3 text-[14px] leading-snug shadow-sm cursor-pointer transition-all active:scale-[0.98] break-words ${
@@ -112,8 +129,11 @@ export function ChatMessage({
             )}
           </div>
         )}
-        {activeReactionId === msg.id && !isEditing && (
-          <div data-reaction-picker className={`absolute ${idx < 2 ? 'top-full mt-2' : 'bottom-full mb-2'} ${isMe ? 'right-0' : 'left-0'} bg-white shadow-lg border border-stone-100 rounded-2xl p-1.5 flex flex-col gap-1 z-50 min-w-[240px]`}>
+        {activeReactionId === msg.id && !isEditing && pickerPos && (
+          <>
+          <div className="fixed inset-0 z-40" onClick={() => setActiveReactionId(null)} />
+          <div data-reaction-picker className="fixed bg-white shadow-2xl border border-stone-100 rounded-2xl p-1.5 flex flex-col gap-1 z-50 w-64"
+            style={{ top: pickerPos.top, left: pickerPos.left }}>
             <div className="flex gap-1 px-1">
               {['👍','❤️','😂','😮','😢','🔥'].map(emoji => {
                 const isSelected = myEmoji === emoji
@@ -161,14 +181,17 @@ export function ChatMessage({
               )}
             </div>
           </div>
+          </>
         )}
       </div>
       <div className={`flex items-center gap-1.5 mt-1 px-1 ${isMe ? 'flex-row-reverse' : ''} ${blurred ? 'blur-sm' : ''}`}>
         <span className="text-[10px] text-stone-400 flex items-center gap-1">
           {msg.ts ? new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
           {isMe && (isRead
-            ? <CheckCheck size={12} className="text-blue-500" />
-            : <Check size={12} className="text-stone-400" />
+            ? <CheckCheck size={12} className="text-blue-500" title="Read" />
+            : isDelivered
+              ? <CheckCheck size={12} className="text-stone-400" title="Delivered" />
+              : <Check size={12} className="text-stone-400" title="Sent" />
           )}
         </span>
         {msg.editedAt && <span className="text-[10px] text-stone-400 italic">edited</span>}

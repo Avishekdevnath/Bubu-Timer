@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Pin, Settings, Users } from 'lucide-react'
+import { ChevronDown, Pin, Search, Settings, Users, X } from 'lucide-react'
 import { PartnerCard } from '../features/partner/PartnerCard.jsx'
 import { RoomSettingsModal } from '../features/partner/RoomSettingsModal.jsx'
 import { ChatInput } from '../features/partner/ChatInput.jsx'
@@ -23,6 +23,10 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
   const [roomSettingsOpen, setRoomSettingsOpen] = useState(false)
   const [privacyMode, setPrivacyMode] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showScrollFab, setShowScrollFab] = useState(false)
+  const chatScrollRef = useRef(null)
   const myDeletedMsgs = pair.myDeletedMsgs || {}
   const myStarredMsgs = pair.myStarredMsgs || {}
   const pins = pair.pins || {}
@@ -57,6 +61,17 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
     if (pair.connected && markRead) markRead()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatMessages.length])
+
+  // Scroll-to-bottom FAB visibility
+  useEffect(() => {
+    const el = chatScrollRef.current
+    if (!el) return
+    function onScroll() {
+      setShowScrollFab(el.scrollHeight - el.scrollTop - el.clientHeight > 120)
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [pair.connected])
 
   // Handle jump from Pinned/Starred pages
   useEffect(() => {
@@ -157,6 +172,13 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
                 </>
               )}
               {d && (
+                <button onClick={() => { setSearchOpen(v => !v); setSearchQuery('') }}
+                  className={`w-8 h-8 flex items-center justify-center rounded-xl transition-colors ${searchOpen ? 'bg-stone-900 text-white' : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'}`}
+                  title="Search messages">
+                  <Search size={15} strokeWidth={1.8} />
+                </button>
+              )}
+              {d && (
                 <button onClick={() => setPrivacyMode(v => !v)}
                   className={`w-8 h-8 flex items-center justify-center rounded-xl transition-colors ${privacyMode ? 'bg-stone-900 text-white' : 'text-stone-400 hover:text-stone-700 hover:bg-stone-100'}`}
                   title={privacyMode ? 'Show messages' : 'Hide messages'}>
@@ -170,6 +192,24 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
               </button>
             </div>
           </div>
+
+          {searchOpen && (
+            <div className="flex items-center gap-2 bg-white border border-stone-200 rounded-xl px-3 py-2 mb-2 shadow-sm flex-shrink-0">
+              <Search size={14} className="text-stone-400 flex-shrink-0" />
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search messages…"
+                className="flex-1 text-sm outline-none bg-transparent text-stone-800 placeholder:text-stone-300"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="text-stone-400 hover:text-stone-700">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          )}
 
           {!d ? (
             <div className="flex-1 flex flex-col items-center justify-center gap-6">
@@ -219,7 +259,8 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
                 </div>
               )}
 
-              <div className="flex-1 overflow-y-auto chat-scroll flex flex-col gap-4 px-3 py-2">
+              <div className="relative flex flex-col min-h-0 flex-1">
+              <div ref={chatScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden chat-scroll flex flex-col gap-4 px-3 py-2">
                 {chatMessages.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-full text-stone-300 gap-2 py-8">
                     <p className="text-xs font-medium">No messages yet. Say hi! 👋</p>
@@ -227,6 +268,7 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
                 )}
                 {chatMessages
                   .filter((msg) => !myDeletedMsgs[msg.id])
+                  .filter((msg) => !searchQuery || (msg.text || '').toLowerCase().includes(searchQuery.toLowerCase()))
                   .map((msg, idx, arr) => (
                     <ChatMessage
                       key={msg.id}
@@ -239,6 +281,7 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
                       isPinned={!!pins[msg.id]}
                       isStarred={!!myStarredMsgs[msg.id]}
                       partnerLastReadTs={d?.lastReadTs}
+                      partnerLastDeliveredTs={d?.lastDeliveredTs}
                       activeReactionId={activeReactionId}
                       setActiveReactionId={setActiveReactionId}
                       editingMsgId={editingMsgId}
@@ -266,6 +309,14 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
                   </div>
                 )}
                 <div ref={chatEndRef} />
+              </div>
+              {showScrollFab && (
+                <button
+                  onClick={() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                  className="absolute bottom-2 right-3 w-9 h-9 bg-stone-900 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-stone-700 transition-colors z-10">
+                  <ChevronDown size={18} />
+                </button>
+              )}
               </div>
               <ChatInput partnerName={pair.partnerNick || d.name} onSend={sendMessage} replyingTo={replyingTo} cancelReply={cancelReply} onTyping={notifyTyping} />
             </div>

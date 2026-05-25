@@ -110,9 +110,13 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
       const val = snap.val()
       const msgs = val ? Object.entries(val).map(([id, m]) => ({ id, ...m })).sort((a, b) => a.ts - b.ts) : []
       setChatMessages(msgs)
+      // Mark delivered whenever partner's messages land (even when tab is backgrounded)
+      const latest = msgs[msgs.length - 1]
+      if (latest && latest.sender !== mySlot) {
+        api.markDelivered(code, mySlot, latest.ts).catch(() => {})
+      }
       if (!firstLoad) {
         setUnreadChat(true)
-        const latest = msgs[msgs.length - 1]
         if (latest && latest.sender !== mySlot) {
           playChatPing()
           clearTimeout(notifTimerRef.current)

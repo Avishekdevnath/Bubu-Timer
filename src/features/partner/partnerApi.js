@@ -67,6 +67,10 @@ export function markRead(code, slot, ts) {
   return update(ref(database, `rooms/${code}/${slot}`), { lastReadTs: ts || Date.now() })
 }
 
+export function markDelivered(code, slot, ts) {
+  return update(ref(database, `rooms/${code}/${slot}`), { lastDeliveredTs: ts || Date.now() })
+}
+
 /* ── Checklists ── */
 export function createChecklist(code, data) {
   return push(ref(database, `rooms/${code}/checklists`), {
