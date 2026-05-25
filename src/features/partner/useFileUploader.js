@@ -6,7 +6,6 @@ const MAX_FILES = 3
 
 export function useFileUploader() {
   const [selectedFiles, setSelectedFiles] = useState([])
-  const [uploadProgress, setUploadProgress] = useState({})
   const [error, setError] = useState(null)
 
   const validateFile = useCallback((file) => {
@@ -42,6 +41,10 @@ export function useFileUploader() {
         id: `${Date.now()}-${Math.random()}`,
         file,
         preview: URL.createObjectURL(file),
+        uploadStatus: 'pending', // pending, uploading, uploaded, error
+        progress: 0,
+        imageUrl: null,
+        errorMsg: null,
       })
     }
 
@@ -52,6 +55,56 @@ export function useFileUploader() {
     setSelectedFiles((prev) => [...prev, ...newFiles])
   }, [selectedFiles, validateFile])
 
+  const uploadFile = useCallback((fileId, uploadFn) => {
+    setSelectedFiles((prev) => {
+      const updated = [...prev]
+      const fileIndex = updated.findIndex((f) => f.id === fileId)
+      if (fileIndex === -1) return prev
+
+      const file = updated[fileIndex]
+      file.uploadStatus = 'uploading'
+      file.progress = 0
+
+      // Start upload in background
+      uploadFn(file.file, (progress) => {
+        setSelectedFiles((current) => {
+          const idx = current.findIndex((f) => f.id === fileId)
+          if (idx !== -1) {
+            current[idx].progress = progress
+          }
+          return [...current]
+        })
+      })
+        .then((result) => {
+          console.log(`✅ File ${fileId} uploaded:`, result)
+          setSelectedFiles((current) => {
+            const idx = current.findIndex((f) => f.id === fileId)
+            if (idx !== -1) {
+              current[idx].uploadStatus = 'uploaded'
+              current[idx].imageUrl = result.imageUrl
+              current[idx].fileName = result.fileName
+              current[idx].size = result.size
+              current[idx].progress = 100
+            }
+            return [...current]
+          })
+        })
+        .catch((err) => {
+          console.error(`❌ Upload failed for ${fileId}:`, err)
+          setSelectedFiles((current) => {
+            const idx = current.findIndex((f) => f.id === fileId)
+            if (idx !== -1) {
+              current[idx].uploadStatus = 'error'
+              current[idx].errorMsg = err.message || 'Upload failed'
+            }
+            return [...current]
+          })
+        })
+
+      return updated
+    })
+  }, [])
+
   const removeFile = useCallback((id) => {
     setSelectedFiles((prev) => {
       const file = prev.find((f) => f.id === id)
@@ -61,24 +114,21 @@ export function useFileUploader() {
   }, [])
 
   const clearFiles = useCallback(() => {
-    selectedFiles.forEach((f) => {
-      if (f.preview) URL.revokeObjectURL(f.preview)
+    setSelectedFiles((prev) => {
+      prev.forEach((f) => {
+        if (f.preview) URL.revokeObjectURL(f.preview)
+      })
+      return []
     })
-    setSelectedFiles([])
     setError(null)
-  }, [selectedFiles])
-
-  const setProgress = useCallback((fileId, progress) => {
-    setUploadProgress((prev) => ({ ...prev, [fileId]: progress }))
   }, [])
 
   return {
     selectedFiles,
-    uploadProgress,
     error,
     addFiles,
+    uploadFile,
     removeFile,
     clearFiles,
-    setProgress,
   }
 }

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, useEffect } from 'react'
 import { Reply, X, Mic, Square, Paperclip } from 'lucide-react'
 import { useVoiceRecorder } from './useVoiceRecorder.js'
 import { useFileUploader } from './useFileUploader.js'
@@ -12,11 +12,10 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
   const [val, setVal] = useState('')
   const [composing, setComposing] = useState(false)
   const [isUploadingVoice, setIsUploadingVoice] = useState(false)
-  const [isUploadingFiles, setIsUploadingFiles] = useState(false)
   const taRef = useRef(null)
   const fileInputRef = useRef(null)
   const { isRecording, recordingTime, startRecording, stopRecording, cancelRecording } = useVoiceRecorder()
-  const { selectedFiles, uploadProgress, error, addFiles, removeFile, clearFiles } = useFileUploader()
+  const { selectedFiles, error, addFiles, uploadFile, removeFile, clearFiles } = useFileUploader()
 
   // Auto-grow on content change
   useLayoutEffect(() => {
@@ -27,6 +26,18 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
     ta.style.height = `${next}px`
     ta.style.overflowY = ta.scrollHeight > MAX_HEIGHT ? 'auto' : 'hidden'
   }, [val])
+
+  // Auto-upload pending files
+  useEffect(() => {
+    if (!roomCode) return
+    
+    selectedFiles.forEach(file => {
+      if (file.uploadStatus === 'pending') {
+        console.log('🚀 Auto-uploading pending file:', file.file.name)
+        uploadFile(file.id, (onProgress) => api.uploadAttachment(roomCode, file.file, onProgress))
+      }
+    })
+  }, [selectedFiles, roomCode, uploadFile])
 
   function submit(e) {
     if (e) e.preventDefault()
@@ -86,55 +97,67 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
     if (files) {
       console.log('Adding files:', Array.from(files).map(f => ({ name: f.name, size: f.size, type: f.type })))
       addFiles(files)
+      // Files will be auto-uploaded by useEffect
     }
     // Reset input so same file can be selected again
     e.target.value = ''
   }
 
-  async function handleSendWithAttachments() {
-    console.log('📎 handleSendWithAttachments called', { selectedFilesCount: selectedFiles.length, roomCode })
+  function handleSendWithAttachments() {
+    console.log('📎 handleSendWithAttachments called', { selectedFilesCount: selectedFiles.length })
     
     if (!selectedFiles.length) {
       console.warn('⚠️ No files selected')
       return
     }
-    if (!roomCode) {
-      console.error('❌ No roomCode provided:', roomCode)
+
+    // Check if all files are uploaded
+    const uploadedFiles = selectedFiles.filter(f => f.uploadStatus === 'uploaded')
+    const failedFiles = selectedFiles.filter(f => f.uploadStatus === 'error')
+    
+    if (uploadedFiles.length === 0) {
+      console.warn('⚠️ No files uploaded yet')
       return
     }
 
-    console.log('📤 Starting file upload for', selectedFiles.length, 'files')
-    setIsUploadingFiles(true)
-
-    try {
-      const attachments = []
-
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i]
-        console.log(`⬆️ Uploading file ${i + 1}/${selectedFiles.length}:`, file.file.name, `(${(file.file.size / 1024 / 1024).toFixed(2)}MB)`)
-        
-        const result = await api.uploadAttachment(roomCode, file.file, (progress) => {
-          console.log(`  Progress: ${progress}%`)
-        })
-        
-        console.log(`✅ Upload complete for ${file.file.name}:`, result)
-        attachments.push(result)
-      }
-
-      console.log('📨 Sending message with attachments:', attachments)
-      onSend({
-        text: val.trim() || '',
-        attachments,
-      })
-
-      setVal('')
-      clearFiles()
-      console.log('✨ Message sent and files cleared')
-    } catch (err) {
-      console.error('❌ Failed to send attachments:', err)
-      setIsUploadingFiles(false)
+    if (failedFiles.length > 0) {
+      console.warn('⚠️ Some files failed to upload:', failedFiles)
+      alert(`${failedFiles.length} file(s) failed to upload. Sending ${uploadedFiles.length} successful uploads.`)
     }
+
+    // Build attachments from uploaded files
+    const attachments = uploadedFiles.map(f => ({
+      imageUrl: f.imageUrl,
+      fileName: f.fileName,
+      size: f.size,
+    }))
+
+    console.log('📨 Sending message with', attachments.length, 'uploaded attachments:', attachments)
+    onSend({
+      text: val.trim() || '',
+      attachments,
+    })
+
+    setVal('')
+    clearFiles()
+    console.log('✨ Message sent and files cleared')
   }
+
+  // Check if any files are still uploading
+  const isUploadingFiles = selectedFiles.some(f => f.uploadStatus === 'uploading' || f.uploadStatus === 'pending')
+
+  return (
+    <div className="flex-shrink-0">
+      {/* Recording overlay */}
+      {isRecording && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-2.5 flex justify-between items-center shadow-sm mb-2 animate-in slide-in-from-bottom-2 fade-in duration-200">
+          <div className="flex items-center gap-2 flex-1">
+            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+            <span className="text-sm font-medium text-red-600">Recording...</span>
+            <span className="text-xs text-red-500 font-mono ml-auto">{Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}</span>
+          </div>
+          <div className="flex gap-1">
+            <button
 
   return (
     <div className="flex-shrink-0">
@@ -182,54 +205,30 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
     {selectedFiles.length > 0 && (
       <div className="bg-stone-50 border border-stone-200 rounded-xl p-2.5 mb-2 animate-in slide-in-from-bottom-2 fade-in duration-200">
         <div className="flex items-center justify-between mb-2">
-          {selectedFiles.length > 1 && (
-            <span className="text-xs font-semibold text-stone-700">Attachments ({selectedFiles.length}/3)</span>
-          )}
+          <span className="text-xs font-semibold text-stone-700">
+            Uploading {selectedFiles.filter(f => f.uploadStatus === 'uploading' || f.uploadStatus === 'pending').length} • 
+            Uploaded {selectedFiles.filter(f => f.uploadStatus === 'uploaded').length} • 
+            Failed {selectedFiles.filter(f => f.uploadStatus === 'error').length}
+          </span>
           <button
             type="button"
             onClick={clearFiles}
-            className="text-stone-400 hover:text-stone-600 text-xs ml-auto">
-            {selectedFiles.length === 1 ? 'Remove' : 'Clear all'}
+            className="text-stone-400 hover:text-stone-600 text-xs">
+            Clear
           </button>
         </div>
         
-        {/* Single image: larger preview */}
-        {selectedFiles.length === 1 && (
-          <div className="relative inline-block">
-            <img
-              src={selectedFiles[0].preview}
-              alt="preview"
-              className="max-w-48 h-auto rounded-lg border border-stone-200"
+        {/* Thumbnail grid */}
+        <div className="flex flex-wrap gap-2">
+          {selectedFiles.map((file) => (
+            <AttachmentPreview
+              key={file.id}
+              attachment={file}
+              isPreview={true}
+              onDelete={() => removeFile(file.id)}
             />
-            <button
-              type="button"
-              onClick={() => removeFile(selectedFiles[0].id)}
-              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors">
-              <X size={14} />
-            </button>
-          </div>
-        )}
-
-        {/* Multiple images: grid of thumbnails */}
-        {selectedFiles.length > 1 && (
-          <div className="flex flex-wrap gap-2">
-            {selectedFiles.map((file) => (
-              <div key={file.id} className="relative">
-                <img
-                  src={file.preview}
-                  alt="preview"
-                  className="w-20 h-20 object-cover rounded-lg border border-stone-200"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeFile(file.id)}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors">
-                  <X size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+          ))}
+        </div>
 
         {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
       </div>
@@ -273,7 +272,7 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
       />
       <button
         type="submit"
-        disabled={(!val.trim() && !selectedFiles.length) || isRecording || isUploadingVoice || isUploadingFiles}
+        disabled={(!val.trim() && !selectedFiles.some(f => f.uploadStatus === 'uploaded')) || isRecording || isUploadingVoice || isUploadingFiles}
         className="w-9 h-9 bg-stone-900 text-white rounded-xl flex items-center justify-center hover:bg-stone-800 disabled:opacity-40 transition-colors flex-shrink-0"
       >
         {isUploadingFiles ? (

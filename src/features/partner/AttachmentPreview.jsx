@@ -1,9 +1,57 @@
 import { useState } from 'react'
-import { X, Download, Maximize2 } from 'lucide-react'
+import { X, Download, Maximize2, Check, AlertCircle } from 'lucide-react'
 
 export function AttachmentPreview({ attachment, isMe, onDelete, isPreview }) {
   const [showModal, setShowModal] = useState(false)
 
+  // Preview mode: show thumbnail with upload status
+  if (isPreview) {
+    return (
+      <div className="relative group overflow-hidden rounded-lg w-20 h-20 flex-shrink-0">
+        <img
+          src={attachment.preview}
+          alt={attachment.file?.name || 'attachment'}
+          className="w-full h-full object-cover"
+        />
+
+        {/* Upload status overlay */}
+        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+          {attachment.uploadStatus === 'uploading' && (
+            <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+          )}
+          {attachment.uploadStatus === 'uploaded' && (
+            <div className="text-white">
+              <Check size={16} />
+            </div>
+          )}
+          {attachment.uploadStatus === 'error' && (
+            <div className="text-red-400">
+              <AlertCircle size={16} />
+            </div>
+          )}
+        </div>
+
+        {/* Remove button (always visible on hover) */}
+        <button
+          onClick={onDelete}
+          className="absolute top-1 right-1 p-1 bg-red-500 hover:bg-red-600 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Remove">
+          <X size={14} className="text-white" />
+        </button>
+
+        {/* Error message on hover */}
+        {attachment.errorMsg && (
+          <div className="absolute inset-0 bg-red-900/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-1">
+            <span className="text-white text-xs text-center truncate">
+              {attachment.errorMsg}
+            </span>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Chat message mode: show full-size image
   return (
     <>
       <div className="relative group overflow-hidden rounded-lg max-w-xs">
@@ -30,15 +78,6 @@ export function AttachmentPreview({ attachment, isMe, onDelete, isPreview }) {
             title="Download">
             <Download size={16} className="text-stone-700" />
           </a>
-
-          {isPreview && (
-            <button
-              onClick={onDelete}
-              className="p-2 bg-red-500 hover:bg-red-600 rounded-full transition-colors"
-              title="Remove">
-              <X size={16} className="text-white" />
-            </button>
-          )}
         </div>
 
         {/* File name tooltip on hover */}
