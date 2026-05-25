@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+/* ── Global resets ── */
+*, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+::selection { background: #d6d3d1; }
+button, [role="button"], a { cursor: pointer; }
+html, body { height: 100%; margin: 0; }
+body { font-family: system-ui, 'Segoe UI', Roboto, sans-serif; background: #FDFCF9; color: #1c1917; -webkit-font-smoothing: antialiased; }
+#root { height: 100%; }
+
+/* ── SVG Timer Ring ── */
+.ring-bg { fill: none; stroke: #e7e5e4; stroke-width: 2; }
+.ring-track {
+  fill: none; stroke: #1c1917; stroke-width: 4; stroke-linecap: round;
+  stroke-dasharray: 628; transition: stroke-dashoffset 1s linear;
+  transform-origin: 50% 50%; transform: rotate(-90deg);
+}
+.ring-track.brk { stroke: #78716c; }
+@keyframes ring-pulse { 0%,100% { opacity:1; } 50% { opacity:.6; } }
+.ring-pulsing .ring-track { animation: ring-pulse 2s ease-in-out infinite; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-8px);
+  background: #1c1917; color: #fafaf9; padding: 10px 22px; border-radius: 99px;
+  font-size: 13px; font-weight: 600; z-index: 9999; pointer-events: none;
+  opacity: 0; transition: opacity 0.2s, transform 0.2s; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Modal ── */
+.modal-back {
+  position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200;
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-box {
+  background: #fff; border-radius: 20px; padding: 28px 24px;
+  width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+}
+
+/* ── Shared form input ── */
+.field-in {
+  display: block; width: 100%; padding: 12px 14px; border: 1px solid #d6d3d1;
+  border-radius: 10px; background: #fafaf9; color: #1c1917; font-size: 14px;
+  font-family: inherit; outline: none; transition: border-color 0.2s; margin-bottom: 10px;
+}
+.field-in:focus { border-color: #1c1917; background: #fff; }
+
+/* ── Thin scrollbar ── */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #a8a29e; }
+* { scrollbar-width: thin; scrollbar-color: #d6d3d1 transparent; }
+
+/* Modern chat scrollbar — pill-shaped gradient, visible, padded */
+div.chat-scroll { scrollbar-width: thin; scrollbar-color: #a8a29e transparent; }
+div.chat-scroll::-webkit-scrollbar { width: 10px !important; height: 10px; }
+div.chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 12px 0;
+}
+div.chat-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #d6d3d1, #a8a29e);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  min-height: 40px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+div.chat-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #78716c, #44403c);
+  background-clip: padding-box;
+}
+div.chat-scroll::-webkit-scrollbar-thumb:active {
+  background: #1c1917;
+  background-clip: padding-box;
+}
+
+/* ── Dark mode (invert trick) ── */
+[data-theme] { filter: invert(1) hue-rotate(180deg); }
+[data-theme] img,
+[data-theme] video,
+[data-theme] svg image { filter: invert(1) hue-rotate(180deg); }
+
+/* ── Break prompt overlay ── */
+.break-overlay {
+  position: fixed; inset: 0; background: rgba(28,25,23,.6); z-index: 300;
+  display: flex; align-items: flex-end; padding: 16px;
+}
+.break-card {
+  width: 100%; max-width: 480px; margin: 0 auto;
+  background: #fff; border-radius: 20px; padding: 28px 24px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+}
