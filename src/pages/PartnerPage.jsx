@@ -143,11 +143,18 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
             </div>
             <div className="flex items-center gap-1">
               {d && (
-                <button onClick={() => setReportOpen(true)}
-                  className="px-2.5 h-8 flex items-center gap-1 rounded-xl text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors text-xs font-semibold"
-                  title="Partner report">
-                  📊 Report
-                </button>
+                <>
+                  <button onClick={() => navigate('/buddy/checklists')}
+                    className="px-2.5 h-8 flex items-center gap-1 rounded-xl text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors text-xs font-semibold"
+                    title="Checklists">
+                    ✅ Tasks
+                  </button>
+                  <button onClick={() => setReportOpen(true)}
+                    className="px-2.5 h-8 flex items-center gap-1 rounded-xl text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors text-xs font-semibold"
+                    title="Partner report">
+                    📊 Report
+                  </button>
+                </>
               )}
               {d && (
                 <button onClick={() => setPrivacyMode(v => !v)}
@@ -293,6 +300,7 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
               onSaveNick={(nick) => { saveNickname(nick); setRoomSettingsOpen(false) }}
               onOpenPins={() => { setRoomSettingsOpen(false); navigate('/buddy/pins') }}
               onOpenStarred={() => { setRoomSettingsOpen(false); navigate('/buddy/starred') }}
+              onOpenChecklists={() => { setRoomSettingsOpen(false); navigate('/buddy/checklists') }}
             />
           )}
         </div>

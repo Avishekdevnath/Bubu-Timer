@@ -38,3 +38,7 @@ IMPROVEMENTS.md
 coverage/
 .nyc_output/
 .vitest/
+
+# Native projects (regenerated via cap sync)
+android/
+ios/

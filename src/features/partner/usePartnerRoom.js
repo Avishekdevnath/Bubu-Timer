@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { off, onDisconnect, onValue, ref, update } from 'firebase/database'
-import { database } from '../../lib/firebase.js'
+import { doc, getDoc, updateDoc } from 'firebase/firestore'
+import { database, firestore } from '../../lib/firebase.js'
 import { getActiveChapter, getActiveSubject } from '../subjects/subjectsModel.js'
 import { getTargetProgress } from '../goals/goalsModel.js'
 import { computeDailySummary, computeStreak } from '../reports/reportsModel.js'
@@ -131,6 +132,12 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
 
     setPair((prev) => ({ ...prev, connected: true, roomCode: code, mySlot, partnerSlot, myName, partnerNick: prev.partnerNick || '' }))
     saveStoredPairing({ roomCode: code, mySlot, myName })
+    // Sync activeRoom to Firestore so other devices auto-restore
+    if (currentUser?.uid && !currentUser.isGuest) {
+      updateDoc(doc(firestore, 'users', currentUser.uid), {
+        activeRoom: { roomCode: code, mySlot, myName: myName || '' },
+      }).catch(() => {})
+    }
     if (announce) showToast(`Room ${code} ready`, 'study-t')
   }
 
@@ -162,6 +169,9 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     if (partnerRefs.current.chatRef) off(partnerRefs.current.chatRef)
     partnerRefs.current = { myRef: null, partnerRef: null, chatRef: null, lastPush: 0, lastMode: null }
     clearStoredPairing()
+    if (currentUser?.uid && !currentUser.isGuest) {
+      updateDoc(doc(firestore, 'users', currentUser.uid), { activeRoom: null }).catch(() => {})
+    }
     setChatMessages([])
     setUnreadChat(false)
     setReplyingTo(null)
@@ -386,6 +396,21 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Restore from Firestore on fresh login (no local pairing but user is signed in)
+  useEffect(() => {
+    if (!currentUser?.uid || currentUser.isGuest || pair.connected) return
+    if (loadStoredPairing()?.roomCode) return // local already handled
+    getDoc(doc(firestore, 'users', currentUser.uid)).then((snap) => {
+      const data = snap.data()
+      const ar = data?.activeRoom
+      if (!ar?.roomCode || !ar?.mySlot) return
+      api.roomExists(ar.roomCode).then((exists) => {
+        if (exists) bindRoom(ar.roomCode, ar.mySlot, ar.myName || '', false)
+      }).catch(() => {})
+    }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.uid])
+
   useEffect(() => {
     if (!activeReactionId) return
     function onDocClick(e) {
@@ -411,5 +436,7 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     editMessage: editMessageFn, copyText, saveNickname: saveNicknameFn,
     togglePin: togglePinFn, toggleStar: toggleStarFn,
     notifyTyping, stopTyping, markRead,
+    createChecklist, updateChecklist, deleteChecklist,
+    addItem, updateItem, deleteItem, toggleItem, toggleArchive,
   }
 }

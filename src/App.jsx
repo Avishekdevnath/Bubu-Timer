@@ -36,6 +36,7 @@ import { TimerPage } from './pages/TimerPage.jsx'
 import { SubjectsPage } from './pages/SubjectsPage.jsx'
 import { PinnedPage } from './pages/PinnedPage.jsx'
 import { StarredPage } from './pages/StarredPage.jsx'
+import { ChecklistsPage } from './pages/ChecklistsPage.jsx'
 import { SubjectModal } from './features/subjects/SubjectModal.jsx'
 import { GoalModal } from './features/goals/GoalModal.jsx'
 import { ReportModal } from './features/reports/ReportModal.jsx'
@@ -238,7 +239,7 @@ function App() {
           // First sync — push current local state to seed the cloud doc.
           queueCloudPush(user.uid, appState)
         }
-      } catch (error) {
+      } catch {
         // Silently handle Firestore errors
       }
     })
@@ -420,7 +421,7 @@ function App() {
     event.preventDefault()
     if (!authForms.loginEmail || !authForms.loginPassword) return showToast('Email and password required', 'bank-t')
     try {
-      const cred = await signInWithEmailAndPassword(auth, authForms.loginEmail, authForms.loginPassword)
+      await signInWithEmailAndPassword(auth, authForms.loginEmail, authForms.loginPassword)
       setAuthForms((forms) => ({ ...forms, loginEmail: '', loginPassword: '' }))
       showToast('Logged in', 'study-t')
     } catch (error) {
@@ -433,7 +434,7 @@ function App() {
     try {
       const provider = new GoogleAuthProvider()
       provider.setCustomParameters({ prompt: 'select_account' })
-      const cred = await signInWithPopup(auth, provider)
+      await signInWithPopup(auth, provider)
     } catch (error) {
       if (error?.code === 'auth/popup-closed-by-user') return
       if (error?.code === 'auth/cancelled-popup-request') return
@@ -553,6 +554,7 @@ function App() {
             <Route path="/buddy" element={<PartnerPage room={room} currentUser={currentUser} showToast={showToast} navigate={navigate} />} />
             <Route path="/buddy/pins" element={<PinnedPage room={room} navigate={navigate} />} />
             <Route path="/buddy/starred" element={<StarredPage room={room} navigate={navigate} />} />
+            <Route path="/buddy/checklists" element={<ChecklistsPage room={room} navigate={navigate} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
