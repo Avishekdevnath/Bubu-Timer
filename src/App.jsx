@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import {
-  ChartNoAxesColumnIncreasing,
   ClipboardList,
-  FileText,
   Settings,
   Timer,
   User,
@@ -46,9 +44,7 @@ import { ConfirmReset } from './components/ConfirmReset.jsx'
 const tabs = [
   { label: 'Timer', path: '/', icon: Timer },
   { label: 'Subjects', path: '/subjects', icon: ClipboardList },
-  { label: 'Reports', path: '/reports', icon: ChartNoAxesColumnIncreasing },
   { label: 'Partner', path: '/buddy', icon: Users },
-  { label: 'Log', path: '/log', icon: FileText },
   { label: 'Settings', path: '/settings', icon: Settings },
   { label: 'Account', path: '/account', icon: User },
 ]

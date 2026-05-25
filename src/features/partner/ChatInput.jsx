@@ -27,8 +27,8 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
   }
 
   function onKeyDown(e) {
-    // Enter sends, Shift+Enter inserts newline. Skip during IME composition.
-    if (e.key === 'Enter' && !e.shiftKey && !composing) {
+    // Ctrl/Cmd + Enter sends. Plain Enter inserts newline.
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !composing) {
       e.preventDefault()
       submit()
     }
@@ -73,7 +73,7 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
       </button>
     </form>
     <p className="text-[10px] text-stone-400 mt-1 px-2">
-      <span className="font-semibold">**bold**</span> · <span className="italic">_italic_</span> · <span className="line-through">~~strike~~</span> · <code className="bg-stone-100 px-1 rounded">`code`</code> · Shift+Enter for newline
+      <span className="font-semibold">**bold**</span> · <span className="italic">_italic_</span> · <span className="line-through">~~strike~~</span> · <code className="bg-stone-100 px-1 rounded">`code`</code> · Tap send (or Ctrl+Enter)
     </p>
     </div>
   )

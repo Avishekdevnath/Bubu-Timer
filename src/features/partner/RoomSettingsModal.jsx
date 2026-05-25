@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export function RoomSettingsModal({ pair, d, onClose, onCopy, onShare, onKick, onLeave, onSaveNick, onOpenPins, onOpenStarred, onOpenChecklists }) {
+export function RoomSettingsModal({ pair, d, onClose, onCopy, onShare, onKick, onLeave, onSaveNick, onOpenPins, onOpenStarred, onOpenChecklists, onOpenReport }) {
   const [nick, setNick] = useState(pair.partnerNick || '')
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center p-4" onClick={onClose}>
@@ -42,6 +42,11 @@ export function RoomSettingsModal({ pair, d, onClose, onCopy, onShare, onKick, o
           <button onClick={onOpenChecklists} className="w-full py-3 text-sm font-semibold text-stone-700 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2">
             ✅ Shared Checklists
           </button>
+          {d && (
+            <button onClick={onOpenReport} className="w-full py-3 text-sm font-semibold text-stone-700 bg-blue-50 rounded-xl hover:bg-blue-100 transition-colors flex items-center justify-center gap-2">
+              📊 Partner Report
+            </button>
+          )}
           <button onClick={onOpenPins} className="w-full py-3 text-sm font-semibold text-stone-700 bg-stone-50 rounded-xl hover:bg-stone-100 transition-colors flex items-center justify-center gap-2">
             📌 Pinned Messages
           </button>

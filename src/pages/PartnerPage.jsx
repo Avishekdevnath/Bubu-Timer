@@ -145,12 +145,12 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
               {d && (
                 <>
                   <button onClick={() => navigate('/buddy/checklists')}
-                    className="px-2.5 h-8 flex items-center gap-1 rounded-xl text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors text-xs font-semibold"
+                    className="hidden md:flex px-2.5 h-8 items-center gap-1 rounded-xl text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors text-xs font-semibold"
                     title="Checklists">
                     ✅ Tasks
                   </button>
                   <button onClick={() => setReportOpen(true)}
-                    className="px-2.5 h-8 flex items-center gap-1 rounded-xl text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors text-xs font-semibold"
+                    className="hidden md:flex px-2.5 h-8 items-center gap-1 rounded-xl text-stone-500 hover:text-stone-800 hover:bg-stone-100 transition-colors text-xs font-semibold"
                     title="Partner report">
                     📊 Report
                   </button>
@@ -301,6 +301,7 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
               onOpenPins={() => { setRoomSettingsOpen(false); navigate('/buddy/pins') }}
               onOpenStarred={() => { setRoomSettingsOpen(false); navigate('/buddy/starred') }}
               onOpenChecklists={() => { setRoomSettingsOpen(false); navigate('/buddy/checklists') }}
+              onOpenReport={() => { setRoomSettingsOpen(false); setReportOpen(true) }}
             />
           )}
         </div>

@@ -13,7 +13,7 @@ initializeApp()
  */
 exports.onChatMessage = onValueCreated(
   {
-    region: 'us-central1',
+    region: 'asia-southeast1',
     ref: '/rooms/{code}/chat/{msgId}',
     instance: 'bubu-study-timer-default-rtdb',
   },

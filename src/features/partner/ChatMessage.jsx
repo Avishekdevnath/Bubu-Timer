@@ -1,5 +1,9 @@
+import { useRef, useState } from 'react'
 import { Check, CheckCheck, Pin, Reply, Star } from 'lucide-react'
 import { MessageContent } from './MessageContent.jsx'
+
+const SWIPE_THRESHOLD = 60  // px to trigger reply
+const SWIPE_MAX = 100       // visual cap
 
 export function ChatMessage({
   msg, idx, isMe, myUid, blurred, msgRef,
@@ -10,6 +14,35 @@ export function ChatMessage({
   onPin, onStar, onReply, onJumpToReply,
 }) {
   const isRead = isMe && partnerLastReadTs && msg.ts && partnerLastReadTs >= msg.ts
+
+  // Swipe-right to reply (touch only)
+  const touchStart = useRef({ x: 0, y: 0, valid: false })
+  const [swipeX, setSwipeX] = useState(0)
+
+  function onTouchStart(e) {
+    const t = e.touches[0]
+    touchStart.current = { x: t.clientX, y: t.clientY, valid: true }
+  }
+  function onTouchMove(e) {
+    if (!touchStart.current.valid) return
+    const t = e.touches[0]
+    const dx = t.clientX - touchStart.current.x
+    const dy = Math.abs(t.clientY - touchStart.current.y)
+    // Cancel if vertical scroll dominates
+    if (dy > 30 && Math.abs(dx) < dy) {
+      touchStart.current.valid = false
+      setSwipeX(0)
+      return
+    }
+    if (dx > 0) setSwipeX(Math.min(dx, SWIPE_MAX))
+  }
+  function onTouchEnd() {
+    if (touchStart.current.valid && swipeX > SWIPE_THRESHOLD && onReply) {
+      onReply(msg)
+    }
+    touchStart.current.valid = false
+    setSwipeX(0)
+  }
   const myEmoji = msg.reactions?.[myUid] || null
   const reactionCounts = msg.reactions
     ? Object.values(msg.reactions).reduce((acc, e) => { acc[e] = (acc[e] || 0) + 1; return acc }, {})
@@ -18,7 +51,21 @@ export function ChatMessage({
   const isEditing = editingMsgId === msg.id
 
   return (
-    <div ref={msgRef} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} ${blurred ? 'select-none' : ''} transition-all duration-500 rounded-2xl`}>
+    <div
+      ref={msgRef}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} ${blurred ? 'select-none' : ''} transition-all duration-500 rounded-2xl relative`}
+      style={{ transform: swipeX > 0 ? `translateX(${swipeX}px)` : undefined, transition: swipeX > 0 ? 'none' : 'transform 200ms ease' }}>
+      {/* Swipe-to-reply indicator */}
+      {swipeX > 10 && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full pr-2 flex items-center pointer-events-none">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${swipeX > SWIPE_THRESHOLD ? 'bg-stone-900 text-white scale-110' : 'bg-stone-200 text-stone-500'}`}>
+            <Reply size={16} />
+          </div>
+        </div>
+      )}
       <div className="relative">
         {isEditing ? (
           <div className="flex flex-col gap-1.5 bg-white border-2 border-stone-400 rounded-2xl p-2 shadow-md">

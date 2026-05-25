@@ -1,4 +1,5 @@
-import { ChartNoAxesColumnIncreasing, User } from 'lucide-react'
+import { ChartNoAxesColumnIncreasing, ChevronRight, FileText, User } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { resetToIdle } from '../features/timer/timerEngine.js'
 import { computeDailySummary } from '../features/reports/reportsModel.js'
 import { formatStudyMinutes } from '../lib/format.js'
@@ -9,6 +10,7 @@ export function SettingsPage({
   soundOn, setSoundOn, chatSoundOn, setChatSoundOn, playDing, playChatPing,
   setReport, setResetOpen,
 }) {
+  const navigate = useNavigate()
   const accountLabel = currentUser?.email || (currentUser?.isGuest ? 'Guest mode' : 'Not signed in')
   return (
     <div className="w-full px-4 md:px-6 pt-6">
@@ -24,6 +26,30 @@ export function SettingsPage({
       </div>
 
       <div className="space-y-4">
+        <section>
+          <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Insights</p>
+          <div className="bg-white border border-stone-100 rounded-2xl shadow-sm overflow-hidden">
+            <button onClick={() => navigate('/reports')}
+              className="w-full flex items-center gap-3 p-4 hover:bg-stone-50 transition-colors text-left border-b border-stone-50">
+              <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center text-stone-600"><ChartNoAxesColumnIncreasing size={16} /></div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-stone-800">Reports</p>
+                <p className="text-xs text-stone-400">Trends, streak, day-by-day</p>
+              </div>
+              <ChevronRight size={16} className="text-stone-300" />
+            </button>
+            <button onClick={() => navigate('/log')}
+              className="w-full flex items-center gap-3 p-4 hover:bg-stone-50 transition-colors text-left">
+              <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center text-stone-600"><FileText size={16} /></div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-stone-800">Activity Log</p>
+                <p className="text-xs text-stone-400">Recent sessions & events</p>
+              </div>
+              <ChevronRight size={16} className="text-stone-300" />
+            </button>
+          </div>
+        </section>
+
         <section>
           <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Study Profile</p>
           <div className="bg-white border border-stone-100 rounded-2xl shadow-sm overflow-hidden">
