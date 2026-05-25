@@ -116,7 +116,7 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
   }
 
   return (
-    <div className="flex-shrink-0 mt-2">
+    <div className="flex-shrink-0">
       {/* Recording overlay */}
       {isRecording && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-2.5 flex justify-between items-center shadow-sm mb-2 animate-in slide-in-from-bottom-2 fade-in duration-200">
@@ -161,31 +161,55 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
     {selectedFiles.length > 0 && (
       <div className="bg-stone-50 border border-stone-200 rounded-xl p-2.5 mb-2 animate-in slide-in-from-bottom-2 fade-in duration-200">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-stone-700">Attachments ({selectedFiles.length}/3)</span>
+          {selectedFiles.length > 1 && (
+            <span className="text-xs font-semibold text-stone-700">Attachments ({selectedFiles.length}/3)</span>
+          )}
           <button
             type="button"
             onClick={clearFiles}
-            className="text-stone-400 hover:text-stone-600 text-xs">
-            Clear all
+            className="text-stone-400 hover:text-stone-600 text-xs ml-auto">
+            {selectedFiles.length === 1 ? 'Remove' : 'Clear all'}
           </button>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {selectedFiles.map((file) => (
-            <div key={file.id} className="relative">
-              <img
-                src={file.preview}
-                alt="preview"
-                className="w-16 h-16 object-cover rounded-lg border border-stone-200"
-              />
-              <button
-                type="button"
-                onClick={() => removeFile(file.id)}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors">
-                <X size={12} />
-              </button>
-            </div>
-          ))}
-        </div>
+        
+        {/* Single image: larger preview */}
+        {selectedFiles.length === 1 && (
+          <div className="relative inline-block">
+            <img
+              src={selectedFiles[0].preview}
+              alt="preview"
+              className="max-w-48 h-auto rounded-lg border border-stone-200"
+            />
+            <button
+              type="button"
+              onClick={() => removeFile(selectedFiles[0].id)}
+              className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {/* Multiple images: grid of thumbnails */}
+        {selectedFiles.length > 1 && (
+          <div className="flex flex-wrap gap-2">
+            {selectedFiles.map((file) => (
+              <div key={file.id} className="relative">
+                <img
+                  src={file.preview}
+                  alt="preview"
+                  className="w-20 h-20 object-cover rounded-lg border border-stone-200"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeFile(file.id)}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors">
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
       </div>
     )}
@@ -196,7 +220,8 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
         {error}
       </div>
     )}
-    <form onSubmit={submit} className="flex gap-2 items-end bg-white border border-stone-200 shadow-sm p-2 rounded-2xl">
+    
+    <form onSubmit={submit} className="flex gap-2 items-end bg-white border border-stone-200 shadow-sm p-2 rounded-2xl mt-1">
       {/* Mic button */}
       <button
         type="button"
