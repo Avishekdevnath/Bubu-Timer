@@ -1,9 +1,55 @@
 import { ChartNoAxesColumnIncreasing, ChevronRight, FileText, User } from 'lucide-react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { resetToIdle } from '../features/timer/timerEngine.js'
 import { computeDailySummary } from '../features/reports/reportsModel.js'
 import { formatStudyMinutes } from '../lib/format.js'
 import { todayStr } from '../lib/dates.js'
+
+function DurationControl({ label, value, min, max, step, chips, onCommit }) {
+  const [draft, setDraft] = useState(String(value))
+
+  const clamp = (n) => Math.max(min, Math.min(max, n))
+  const commit = (raw) => {
+    const n = parseInt(raw, 10)
+    const next = Number.isFinite(n) ? clamp(n) : value
+    setDraft(String(next))
+    if (next !== value) onCommit(next)
+  }
+
+  return (
+    <div className="p-4 border-b border-stone-50 last:border-b-0">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-stone-700">{label}</span>
+        <div className="flex items-center gap-2">
+          <button onClick={() => commit(value - step)}
+            className="w-7 h-7 rounded-full border border-stone-200 text-stone-600 flex items-center justify-center hover:bg-stone-50">−</button>
+          <div className="flex items-center gap-1">
+            <input
+              type="text" inputMode="numeric" pattern="[0-9]*"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ''))}
+              onBlur={(e) => commit(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+              className="w-12 text-center text-sm font-semibold text-stone-800 bg-stone-50 border border-stone-200 rounded-lg py-1 focus:border-stone-400 focus:outline-none"
+            />
+            <span className="text-xs text-stone-400">min</span>
+          </div>
+          <button onClick={() => commit(value + step)}
+            className="w-7 h-7 rounded-full border border-stone-200 text-stone-600 flex items-center justify-center hover:bg-stone-50">+</button>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-1.5 mt-3">
+        {chips.map((c) => (
+          <button key={c} onClick={() => commit(c)}
+            className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${value === c ? 'bg-stone-900 text-white border-stone-900' : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'}`}>
+            {c}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export function SettingsPage({
   appState, patchState, currentUser, profileForm, setProfileForm, saveProfile,
@@ -78,22 +124,18 @@ export function SettingsPage({
         <section>
           <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Timer Rules</p>
           <div className="bg-white border border-stone-100 rounded-2xl shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-stone-50">
-              <span className="text-sm font-medium text-stone-700">Focus Duration</span>
-              <div className="flex items-center gap-2">
-                <button onClick={() => patchState((s) => resetToIdle({ ...s, studyDuration: Math.max(1, s.studyDuration - 5) }))} className="w-7 h-7 rounded-full border border-stone-200 text-stone-600 flex items-center justify-center hover:bg-stone-50">−</button>
-                <span className="text-sm font-semibold text-stone-800 w-12 text-center">{appState.studyDuration} min</span>
-                <button onClick={() => patchState((s) => resetToIdle({ ...s, studyDuration: Math.min(120, s.studyDuration + 5) }))} className="w-7 h-7 rounded-full border border-stone-200 text-stone-600 flex items-center justify-center hover:bg-stone-50">+</button>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-4">
-              <span className="text-sm font-medium text-stone-700">Break Duration</span>
-              <div className="flex items-center gap-2">
-                <button onClick={() => patchState((s) => ({ ...s, breakDuration: Math.max(1, s.breakDuration - 1) }))} className="w-7 h-7 rounded-full border border-stone-200 text-stone-600 flex items-center justify-center hover:bg-stone-50">−</button>
-                <span className="text-sm font-semibold text-stone-800 w-12 text-center">{appState.breakDuration} min</span>
-                <button onClick={() => patchState((s) => ({ ...s, breakDuration: Math.min(60, s.breakDuration + 1) }))} className="w-7 h-7 rounded-full border border-stone-200 text-stone-600 flex items-center justify-center hover:bg-stone-50">+</button>
-              </div>
-            </div>
+            <DurationControl
+              key={`focus-${appState.studyDuration}`}
+              label="Focus Duration" value={appState.studyDuration}
+              min={1} max={120} step={5} chips={[15, 20, 25, 30, 45, 60]}
+              onCommit={(v) => patchState((s) => resetToIdle({ ...s, studyDuration: v }))}
+            />
+            <DurationControl
+              key={`break-${appState.breakDuration}`}
+              label="Break Duration" value={appState.breakDuration}
+              min={1} max={60} step={1} chips={[5, 10, 15, 20, 30]}
+              onCommit={(v) => patchState((s) => ({ ...s, breakDuration: v }))}
+            />
           </div>
         </section>
 
