@@ -4,8 +4,6 @@ import { Play, Pause, Volume2 } from 'lucide-react'
 export function VoicePlayer({ audioUrl, duration, isMe }) {
   const audioRef = useRef(null)
   const canvasRef = useRef(null)
-  const animationRef = useRef(null)
-  
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [waveformData, setWaveformData] = useState([])
@@ -58,8 +56,12 @@ export function VoicePlayer({ audioUrl, duration, isMe }) {
 
     const handleLoadedMetadata = () => {
       setIsLoading(false)
-      // Generate simple waveform data (random for visual effect)
-      const bars = Array.from({ length: 40 }, () => Math.random() * 0.7 + 0.3)
+      // Deterministic waveform — consistent per audio file, not random
+      const seed = audioUrl ? audioUrl.split('').reduce((a, c) => a + c.charCodeAt(0), 0) : 42
+      const bars = Array.from({ length: 40 }, (_, i) => {
+        const t = (i / 40) * Math.PI * 6
+        return Math.min(1, 0.25 + Math.abs(Math.sin(t + seed % 11) * 0.45 + Math.sin(t * 1.7 + (seed % 7) * 0.4) * 0.3))
+      })
       setWaveformData(bars)
     }
 
@@ -81,7 +83,7 @@ export function VoicePlayer({ audioUrl, duration, isMe }) {
       audio.removeEventListener('timeupdate', handleTimeUpdate)
       audio.removeEventListener('ended', handleEnded)
     }
-  }, [])
+  }, [audioUrl])
 
   const handlePlayPause = async () => {
     const audio = audioRef.current

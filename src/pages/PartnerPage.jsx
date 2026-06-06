@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, Pin, Search, Settings, Users, X } from 'lucide-react'
 import { PartnerCard } from '../features/partner/PartnerCard.jsx'
-import { RoomSettingsModal } from '../features/partner/RoomSettingsModal.jsx'
 import { ChatInput } from '../features/partner/ChatInput.jsx'
 import { ChatMessage } from '../features/partner/ChatMessage.jsx'
 
@@ -13,14 +12,13 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
     roomInput, setRoomInput,
     replyingTo, startReply, cancelReply,
     jumpToId, setJumpToId,
-    createRoom, joinRoom, disconnect, kickPartner,
-    sendMessage, addReaction, deleteForMe, deleteForEveryone, editMessage, copyText, saveNickname,
+    createRoom, joinRoom,
+    sendMessage, addReaction, deleteForMe, deleteForEveryone, editMessage, copyText,
     togglePin, toggleStar,
     notifyTyping, markRead,
   } = room
 
   const d = pair.data
-  const [roomSettingsOpen, setRoomSettingsOpen] = useState(false)
   const [privacyMode, setPrivacyMode] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -34,9 +32,11 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
   const msgRefs = useRef({})
 
   // Latest pinned message for sticky banner
-  const latestPin = pinCount > 0
-    ? [...chatMessages].filter((m) => pins[m.id]).sort((a, b) => (pins[b.id]?.ts || 0) - (pins[a.id]?.ts || 0))[0]
-    : null
+  const latestPin = useMemo(() => {
+    const pinsMap = pair.pins || {}
+    if (Object.keys(pinsMap).length === 0) return null
+    return [...chatMessages].filter((m) => pinsMap[m.id]).sort((a, b) => (pinsMap[b.id]?.ts || 0) - (pinsMap[a.id]?.ts || 0))[0] || null
+  }, [chatMessages, pair.pins])
 
   function jumpToMessage(id) {
     const el = msgRefs.current[id]
@@ -185,7 +185,7 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
                   {privacyMode ? '🔒' : '👁'}
                 </button>
               )}
-              <button onClick={() => setRoomSettingsOpen(true)}
+              <button onClick={() => navigate('/partner-settings')}
                 className="w-8 h-8 flex items-center justify-center rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
                 title="Room settings">
                 <Settings size={16} strokeWidth={1.8} />
@@ -339,22 +339,6 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
             </div>
           )}
 
-          {roomSettingsOpen && (
-            <RoomSettingsModal
-              pair={pair}
-              d={d}
-              onClose={() => setRoomSettingsOpen(false)}
-              onCopy={() => { navigator.clipboard?.writeText(pair.roomCode); showToast('Code copied!', 'study-t') }}
-              onShare={() => { navigator.share?.({ title: 'Join my study room', text: `Join me on Bubu Timer! Room code: ${pair.roomCode}` }).catch(() => navigator.clipboard?.writeText(pair.roomCode)); showToast('Shared!', 'study-t') }}
-              onKick={() => { kickPartner(); setRoomSettingsOpen(false) }}
-              onLeave={() => { disconnect(); setRoomSettingsOpen(false) }}
-              onSaveNick={(nick) => { saveNickname(nick); setRoomSettingsOpen(false) }}
-              onOpenPins={() => { setRoomSettingsOpen(false); navigate('/buddy/pins') }}
-              onOpenStarred={() => { setRoomSettingsOpen(false); navigate('/buddy/starred') }}
-              onOpenChecklists={() => { setRoomSettingsOpen(false); navigate('/buddy/checklists') }}
-              onOpenReport={() => { setRoomSettingsOpen(false); setReportOpen(true) }}
-            />
-          )}
         </div>
       )}
     </div>

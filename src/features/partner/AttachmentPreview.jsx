@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { X, Download, Maximize2, Check, AlertCircle } from 'lucide-react'
 
-export function AttachmentPreview({ attachment, isMe, onDelete, isPreview }) {
+export function AttachmentPreview({ attachment, onDelete, isPreview }) {
   const [showModal, setShowModal] = useState(false)
 
   // Preview mode: show thumbnail with upload status

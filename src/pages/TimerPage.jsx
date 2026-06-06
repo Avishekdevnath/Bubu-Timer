@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { PlanItemCard } from '../features/plan/PlanItemCard.jsx'
 import { PlanBuilder } from '../features/plan/PlanBuilder.jsx'
+import { DurationControl } from '../features/plan/DurationControl.jsx'
 import { liveElapsedSec, itemRemainingSec } from '../features/plan/planModel.js'
 import { formatRemaining } from '../lib/format.js'
 import { fromPlanPayload } from '../features/plan/planSync.js'
+import { DescEditor } from '../features/plan/DescEditor.jsx'
 
-export function TimerPage({ appState, room, onStartItem, onPause, onDone, onEndDay, onCreatePlan }) {
+export function TimerPage({ appState, room, onStartItem, onPause, onDone, onEndDay, onCreatePlan, onAddSubject, onRemoveItem }) {
   const [view, setView] = useState('mine')
   const [building, setBuilding] = useState(false)
   // eslint-disable-next-line react-hooks/purity
@@ -32,7 +34,9 @@ export function TimerPage({ appState, room, onStartItem, onPause, onDone, onEndD
             <button onClick={() => setBuilding(true)} className="px-6 py-3 bg-stone-900 text-white rounded-2xl text-sm font-semibold">Build Today&apos;s Plan</button>
           </div>
         ) : (
-          <MyPlan plan={plan} now={now} onStartItem={onStartItem} onPause={onPause} onDone={onDone} onEndDay={onEndDay} />
+          <MyPlan plan={plan} now={now} subjects={appState.subjects}
+            onStartItem={onStartItem} onPause={onPause} onDone={onDone} onEndDay={onEndDay}
+            onAddSubject={onAddSubject} onRemoveItem={onRemoveItem} />
         )
       ) : (
         <PartnerPlan plan={partnerPlan} now={now} connected={!!room?.pair?.connected} partnerName={room?.pair?.partnerNick || room?.pair?.data?.name} />
@@ -41,8 +45,22 @@ export function TimerPage({ appState, room, onStartItem, onPause, onDone, onEndD
   )
 }
 
-function MyPlan({ plan, now, onStartItem, onPause, onDone, onEndDay }) {
+function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, onAddSubject, onRemoveItem }) {
   const active = plan.items.find((i) => i.id === plan.activeItemId)
+  const [addOpen, setAddOpen] = useState(false)
+  const [addForm, setAddForm] = useState({ subjectId: subjects[0]?.id || '', minutes: 30, desc: '' })
+
+  function submitAdd() {
+    if (plan.items.some((i) => i.subjectId === addForm.subjectId)) {
+      setAddOpen(false)
+      return
+    }
+    const subj = subjects.find((s) => s.id === addForm.subjectId)
+    onAddSubject({ subjectId: addForm.subjectId, subjectName: subj?.name || 'Subject', desc: addForm.desc, targetSec: addForm.minutes * 60 })
+    setAddOpen(false)
+    setAddForm({ subjectId: subjects[0]?.id || '', minutes: 30, desc: '' })
+  }
+
   return (
     <div className="space-y-3">
       {active ? (
@@ -62,10 +80,36 @@ function MyPlan({ plan, now, onStartItem, onPause, onDone, onEndDay }) {
       ) : null}
 
       {plan.items.map((it) => (
-        <PlanItemCard key={it.id} item={it} now={now} onClick={() => onStartItem(it.id)} />
+        <PlanItemCard key={it.id} item={it} now={now} onClick={() => onStartItem(it.id)} onRemove={onRemoveItem} />
       ))}
 
-      <button onClick={onEndDay} className="w-full py-3 rounded-xl border border-stone-200 text-stone-500 text-sm font-semibold hover:bg-stone-50 mt-2">End Day</button>
+      {addOpen ? (
+        <div className="bg-white border border-stone-100 rounded-2xl p-4 shadow-sm space-y-2">
+          <p className="text-xs font-bold text-stone-500 uppercase tracking-wider">Add Subject</p>
+          <select value={addForm.subjectId} onChange={(e) => setAddForm({ ...addForm, subjectId: e.target.value })}
+            className="w-full border border-stone-200 rounded-lg px-2 py-2 text-sm bg-white">
+            {subjects.filter((s) => !plan.items.some((i) => i.subjectId === s.id)).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+          <DescEditor value={addForm.desc} onChange={(v) => setAddForm({ ...addForm, desc: v })}
+            placeholder="What to read (optional)" />
+          <DurationControl label="Time" value={addForm.minutes} min={5} max={720} step={5} chips={[15, 30, 45, 60, 90, 120, 180]}
+            onCommit={(v) => setAddForm({ ...addForm, minutes: v })} />
+          <div className="flex gap-2 pt-1">
+            <button onClick={() => setAddOpen(false)} className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-500 text-sm font-semibold">Cancel</button>
+            <button onClick={submitAdd} disabled={!addForm.subjectId}
+              className="flex-1 py-2.5 rounded-xl bg-stone-900 text-white text-sm font-semibold">Add</button>
+          </div>
+        </div>
+      ) : (
+        subjects.length > 0 && (
+          <button onClick={() => setAddOpen(true)}
+            className="w-full py-2.5 rounded-xl border border-dashed border-stone-300 text-stone-400 text-sm font-semibold hover:bg-stone-50">
+            + Add subject
+          </button>
+        )
+      )}
+
+      <button onClick={onEndDay} className="w-full py-3 rounded-xl border border-stone-200 text-stone-500 text-sm font-semibold hover:bg-stone-50">End Day</button>
     </div>
   )
 }

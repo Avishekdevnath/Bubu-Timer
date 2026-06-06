@@ -31,6 +31,25 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
   const notifTimerRef = useRef(null)
   const typingTimerRef = useRef(null)
   const partnerRefs = useRef({ myRef: null, partnerRef: null, lastPush: 0, lastMode: null })
+  const msgsCacheRef = useRef({})
+  const latestTsRef = useRef(0)
+
+  function stableMsgs(val) {
+    const cache = msgsCacheRef.current
+    const newCache = {}
+    const msgs = []
+    for (const [id, m] of Object.entries(val)) {
+      const sig = `${m.ts}|${m.editedAt ?? ''}|${JSON.stringify(m.reactions ?? {})}`
+      if (cache[id]?.sig === sig) {
+        newCache[id] = cache[id]
+      } else {
+        newCache[id] = { sig, msg: { id, ...m } }
+      }
+      msgs.push(newCache[id].msg)
+    }
+    msgsCacheRef.current = newCache
+    return msgs.sort((a, b) => a.ts - b.ts)
+  }
 
   function bindRoom(code, mySlot, myName, announce = true) {
     const partnerSlot = mySlot === 'A' ? 'B' : 'A'
@@ -96,16 +115,27 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     let firstLoad = true
     onValue(chatRef, (snap) => {
       const val = snap.val()
-      const msgs = val ? Object.entries(val).map(([id, m]) => ({ id, ...m })).sort((a, b) => a.ts - b.ts) : []
+      const msgs = val ? stableMsgs(val) : []
       setChatMessages(msgs)
-      // Mark delivered whenever partner's messages land (even when tab is backgrounded)
+
       const latest = msgs[msgs.length - 1]
       if (latest && latest.sender !== mySlot) {
         api.markDelivered(code, mySlot, latest.ts).catch(() => {})
       }
-      if (!firstLoad) {
+
+      if (firstLoad) {
+        latestTsRef.current = latest?.ts ?? 0
+        setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+        firstLoad = false
+        return
+      }
+
+      // Only scroll + notify for genuinely new messages, not reactions/edits
+      const isNew = latest && latest.ts > latestTsRef.current
+      if (isNew) {
+        latestTsRef.current = latest.ts
         setUnreadChat(true)
-        if (latest && latest.sender !== mySlot) {
+        if (latest.sender !== mySlot) {
           playChatPing()
           clearTimeout(notifTimerRef.current)
           if (window.location.pathname !== '/buddy' && Notification.permission === 'granted') {
@@ -116,9 +146,8 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
             })
           }
         }
+        setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
       }
-      firstLoad = false
-      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
     })
 
     setPair((prev) => ({ ...prev, connected: true, roomCode: code, mySlot, partnerSlot, myName, partnerNick: prev.partnerNick || '' }))
@@ -159,6 +188,8 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     if (partnerRefs.current.partnerRef) off(partnerRefs.current.partnerRef)
     if (partnerRefs.current.chatRef) off(partnerRefs.current.chatRef)
     partnerRefs.current = { myRef: null, partnerRef: null, chatRef: null, lastPush: 0, lastMode: null }
+    msgsCacheRef.current = {}
+    latestTsRef.current = 0
     clearStoredPairing()
     if (currentUser?.uid && !currentUser.isGuest) {
       updateDoc(doc(firestore, 'users', currentUser.uid), { activeRoom: null }).catch(() => {})

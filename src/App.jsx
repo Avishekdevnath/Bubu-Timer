@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import {
   Home,
@@ -16,26 +16,27 @@ import {
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { auth, firestore } from './lib/firebase.js'
 import { registerPushToken, subscribeForegroundMessages } from './lib/messaging.js'
-import { pad } from './lib/format.js'
 import { todayStr } from './lib/dates.js'
 import { loadStoredState, loadThemeValue, saveStoredState, saveThemeValue } from './lib/storage.js'
 import { flushCloudPushNow, mergeCloudIntoLocal, pullCloudState, queueCloudPush } from './lib/cloudSync.js'
-import { buildPlan, startItem, pauseItem, markItemDone, endDay, autoArchiveIfPastCutoff } from './features/plan/planModel.js'
+import { buildPlan, startItem, pauseItem, markItemDone, endDay, autoArchiveIfPastCutoff, addItemToPlan, removeItemFromPlan } from './features/plan/planModel.js'
 import { dhakaNowMinutes } from './lib/dates.js'
 import { ProgressNoteModal } from './components/ProgressNoteModal.jsx'
 import { EndDayModal } from './components/EndDayModal.jsx'
 import { usePartnerRoom } from './features/partner/usePartnerRoom.js'
-import { PartnerPage } from './pages/PartnerPage.jsx'
-import { ReportsPage } from './pages/ReportsPage.jsx'
-import { LogPage } from './pages/LogPage.jsx'
-import { SettingsPage } from './pages/SettingsPage.jsx'
-import { TimerPage } from './pages/TimerPage.jsx'
-import { HomePage } from './pages/HomePage.jsx'
-import { PartnerSettingsPage } from './pages/PartnerSettingsPage.jsx'
-import { SubjectsPage } from './pages/SubjectsPage.jsx'
-import { PinnedPage } from './pages/PinnedPage.jsx'
-import { StarredPage } from './pages/StarredPage.jsx'
-import { ChecklistsPage } from './pages/ChecklistsPage.jsx'
+import { ErrorBoundary } from './components/ErrorBoundary.jsx'
+
+const PartnerPage        = lazy(() => import('./pages/PartnerPage.jsx').then(m => ({ default: m.PartnerPage })))
+const ReportsPage        = lazy(() => import('./pages/ReportsPage.jsx').then(m => ({ default: m.ReportsPage })))
+const LogPage            = lazy(() => import('./pages/LogPage.jsx').then(m => ({ default: m.LogPage })))
+const SettingsPage       = lazy(() => import('./pages/SettingsPage.jsx').then(m => ({ default: m.SettingsPage })))
+const TimerPage          = lazy(() => import('./pages/TimerPage.jsx').then(m => ({ default: m.TimerPage })))
+const HomePage           = lazy(() => import('./pages/HomePage.jsx').then(m => ({ default: m.HomePage })))
+const PartnerSettingsPage= lazy(() => import('./pages/PartnerSettingsPage.jsx').then(m => ({ default: m.PartnerSettingsPage })))
+const SubjectsPage       = lazy(() => import('./pages/SubjectsPage.jsx').then(m => ({ default: m.SubjectsPage })))
+const PinnedPage         = lazy(() => import('./pages/PinnedPage.jsx').then(m => ({ default: m.PinnedPage })))
+const StarredPage        = lazy(() => import('./pages/StarredPage.jsx').then(m => ({ default: m.StarredPage })))
+const ChecklistsPage     = lazy(() => import('./pages/ChecklistsPage.jsx').then(m => ({ default: m.ChecklistsPage })))
 import { SubjectModal } from './features/subjects/SubjectModal.jsx'
 import { ReportModal } from './features/reports/ReportModal.jsx'
 import { ConfirmReset } from './components/ConfirmReset.jsx'
@@ -157,10 +158,10 @@ function App() {
   const room = usePartnerRoom({ currentUser, appState, showToast, playChatPing })
 
   function addLog(message, type = '') {
-    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' }))
+    const time = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Dhaka', hour: 'numeric', minute: '2-digit', hour12: true })
     patchState((state) => ({
       ...state,
-      logs: [{ msg: message, type, time: `${pad(d.getHours())}:${pad(d.getMinutes())}` }, ...state.logs].slice(0, 60),
+      logs: [{ msg: message, type, time }, ...state.logs].slice(0, 60),
     }))
   }
 
@@ -321,13 +322,22 @@ function App() {
   function handleStartItem(itemId) {
     getAudioCtx()
     const plan = appState.dailyPlan
+    if (plan?.activeItemId === itemId) return  // already running — no-op (prevents runStartTs reset)
     if (plan?.activeItemId && plan.activeItemId !== itemId) {
       setNoteModal({ itemId: plan.activeItemId, mode: 'switchTo', nextItemId: itemId })
       return
     }
     patchState((s) => startItem(s, itemId, Date.now()))
-    const it = plan?.items.find((i) => i.id === itemId)
+    const it = plan?.items?.find((i) => i.id === itemId)
     addLog(`Started: ${it?.subjectName || ''}`, 'ls')
+  }
+
+  function removeFromPlan(itemId) {
+    try {
+      patchState((s) => removeItemFromPlan(s, itemId))
+    } catch (e) {
+      showToast(e.message, 'bank-t')
+    }
   }
 
   function openPauseNote() {
@@ -366,6 +376,11 @@ function App() {
   function createPlan(items) {
     patchState((s) => buildPlan(s, { date: todayStr(), items }))
     showToast('Plan ready', 'study-t')
+  }
+
+  function addSubjectToPlan(item) {
+    patchState((s) => addItemToPlan(s, item))
+    showToast(`Added: ${item.subjectName}`, 'study-t')
   }
 
 
@@ -493,13 +508,16 @@ function App() {
 
         {/* Screen content */}
         <main className={`flex-1 overflow-x-hidden ${useLocation().pathname === '/buddy' ? 'overflow-hidden' : 'overflow-y-auto pb-20 md:pb-6'}`}>
+          <ErrorBoundary>
+          <Suspense fallback={<div className="flex items-center justify-center h-32"><div className="w-6 h-6 rounded-full border-2 border-stone-300 border-t-stone-700 animate-spin" /></div>}>
           <Routes>
             <Route path="/home" element={<HomePage />} />
             <Route path="/" element={<TimerPage
               appState={appState} room={room}
               onStartItem={handleStartItem} onPause={openPauseNote} onDone={openDoneNote}
-              onEndDay={() => setEndDayOpen(true)} onCreatePlan={createPlan}
-              soundOn={soundOn} setSoundOn={setSoundOn} navigate={navigate}
+              onEndDay={() => setEndDayOpen(true)} onCreatePlan={createPlan} onAddSubject={addSubjectToPlan}
+              onRemoveItem={removeFromPlan}
+              navigate={navigate}
             />} />
             <Route path="/subjects" element={<SubjectsPage
               appState={appState} search={search} setSearch={setSearch}
@@ -523,6 +541,8 @@ function App() {
             <Route path="/buddy/checklists" element={<ChecklistsPage room={room} navigate={navigate} />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
+          </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
 
@@ -554,7 +574,13 @@ function App() {
       {/* ── Overlays ── */}
       {toast ? <div className="toast show">{toast.message}</div> : null}
       {noteModal ? <ProgressNoteModal mode={noteModal.mode} onSubmit={submitNote} onCancel={() => setNoteModal(null)} /> : null}
-      {endDayOpen ? <EndDayModal onSubmit={submitEndDay} onCancel={() => setEndDayOpen(false)} /> : null}
+      {endDayOpen ? <EndDayModal
+        onSubmit={submitEndDay}
+        onCancel={() => setEndDayOpen(false)}
+        runningItemName={appState.dailyPlan?.activeItemId
+          ? appState.dailyPlan.items?.find(i => i.id === appState.dailyPlan.activeItemId)?.subjectName
+          : null}
+      /> : null}
       {subjectModal ? <SubjectModal modal={subjectModal} onClose={() => setSubjectModal(null)} appState={appState} patchState={patchState} setExpanded={setExpanded} showToast={showToast} /> : null}
       {report ? <ReportModal summary={report} onClose={() => setReport(null)} /> : null}
       {resetOpen ? <ConfirmReset onClose={() => setResetOpen(false)} persistState={persistState} setAppState={setAppState} /> : null}

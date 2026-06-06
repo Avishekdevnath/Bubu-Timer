@@ -1,12 +1,21 @@
 import { useState } from 'react'
 
-export function EndDayModal({ onSubmit, onCancel }) {
+export function EndDayModal({ onSubmit, onCancel, runningItemName }) {
   const [note, setNote] = useState('')
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-0 sm:p-4" onClick={onCancel}>
       <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-base font-semibold text-stone-800 mb-1">End the day</h3>
-        <p className="text-xs text-stone-400 mb-3">Optional summary message for today. Archives your plan.</p>
+        {runningItemName && (
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 mb-3">
+            <span className="text-amber-500 text-sm mt-0.5">⚠️</span>
+            <p className="text-xs text-amber-700 leading-relaxed">
+              <span className="font-semibold">{runningItemName}</span> is still running.
+              It will be auto-paused when you end the day.
+            </p>
+          </div>
+        )}
+        <p className="text-xs text-stone-400 mb-3">Optional summary for today. Archives your plan.</p>
         <textarea autoFocus value={note} onChange={(e) => setNote(e.target.value)} rows={3}
           placeholder="How did today go? (optional)"
           className="w-full border border-stone-200 rounded-xl p-3 text-sm outline-none focus:border-stone-400 resize-none" />

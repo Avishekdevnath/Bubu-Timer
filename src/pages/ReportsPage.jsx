@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChartNoAxesColumnIncreasing } from 'lucide-react'
-import { computeDailySummary, computeStreak } from '../features/reports/reportsModel.js'
+import { computeDayReport, computePlanStreak, computeAllTimeSubjects, computeAllTotalMin } from '../features/reports/reportsModel.js'
 import { formatStudyMinutes } from '../lib/format.js'
 import { todayStr, yesterdayStr } from '../lib/dates.js'
 
@@ -9,31 +9,22 @@ export function ReportsPage({ appState }) {
   const [dayFilter, setDayFilter] = useState('all')
 
   const today = todayStr()
-  const summaryToday = computeDailySummary(appState, today)
-  const summaryYesterday = computeDailySummary(appState, yesterdayStr())
-  const streak = computeStreak(appState)
-  const eventTotalMin = (appState.sessionEvents || []).reduce((sum, e) => sum + (e.durationMin || 0), 0)
-  const totalStudyMin = Math.max(eventTotalMin, appState.studyMin || 0)
-  const totalSessions = Math.max((appState.sessionEvents || []).length, appState.sessions || 0)
+  const yesterday = yesterdayStr()
+  const reportToday = computeDayReport(appState, today)
+  const reportYesterday = computeDayReport(appState, yesterday)
+  const streak = computePlanStreak(appState, today)
+  const subjectList = computeAllTimeSubjects(appState)
+  const totalMin = computeAllTotalMin(appState)
 
   const last7 = []
   for (let i = 6; i >= 0; i -= 1) {
-    const d = new Date()
+    const d = new Date(`${today}T00:00:00`)
     d.setDate(d.getDate() - i)
     const key = d.toISOString().slice(0, 10)
-    const s = computeDailySummary(appState, key)
-    last7.push({ key, day: d.toLocaleDateString([], { weekday: 'short' }), min: s.totalMin, sessions: s.totalSessions, achieved: s.achieved })
+    const r = computeDayReport(appState, key)
+    last7.push({ key, day: d.toLocaleDateString([], { weekday: 'short' }), min: r?.totalMin ?? 0 })
   }
   const max7 = Math.max(1, ...last7.map((d) => d.min))
-
-  const subjectTotals = {}
-  ;(appState.sessionEvents || []).forEach((e) => {
-    const key = e.subjectId || '__none__'
-    if (!subjectTotals[key]) subjectTotals[key] = { name: e.subjectName || '(no subject)', minutes: 0, sessions: 0 }
-    subjectTotals[key].minutes += e.durationMin || 0
-    subjectTotals[key].sessions += 1
-  })
-  const subjectList = Object.values(subjectTotals).sort((a, b) => b.minutes - a.minutes)
 
   return (
     <div className="w-full px-4 md:px-6 pt-6">
@@ -44,10 +35,10 @@ export function ReportsPage({ appState }) {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: 'Today', value: formatStudyMinutes(summaryToday.totalMin) },
-          { label: 'Yesterday', value: formatStudyMinutes(summaryYesterday.totalMin) },
+          { label: 'Today', value: formatStudyMinutes(reportToday?.totalMin ?? 0) },
+          { label: 'Yesterday', value: formatStudyMinutes(reportYesterday?.totalMin ?? 0) },
           { label: 'Streak', value: `${streak}d` },
-          { label: 'Total Sessions', value: totalSessions },
+          { label: 'Past Days', value: (appState.planHistory || []).length },
         ].map((s) => (
           <div key={s.label} className="bg-white border border-stone-100 rounded-2xl p-4 shadow-sm">
             <p className="text-[9px] font-bold tracking-widest text-stone-400 uppercase">{s.label}</p>
@@ -60,7 +51,7 @@ export function ReportsPage({ appState }) {
         <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Last 7 Days</p>
         <div className="bg-white border border-stone-100 rounded-2xl p-5 shadow-sm">
           {last7.every((d) => d.min === 0) && (
-            <p className="text-center text-xs text-stone-400 mb-2">No sessions this week yet</p>
+            <p className="text-center text-xs text-stone-400 mb-2">No study days this week yet</p>
           )}
           <div className="flex items-end justify-between gap-2 h-40">
             {last7.map((d) => {
@@ -69,19 +60,15 @@ export function ReportsPage({ appState }) {
                 <div key={d.key} className="flex-1 flex flex-col items-center gap-2 min-w-0">
                   <div className="flex-1 w-full flex items-end">
                     <div
-                      className={`w-full rounded-t-lg transition-all ${d.achieved ? 'bg-emerald-400' : d.min > 0 ? 'bg-stone-700' : 'bg-stone-100'}`}
+                      className={`w-full rounded-t-lg transition-all ${d.min > 0 ? 'bg-stone-700' : 'bg-stone-100'}`}
                       style={{ height: `${heightPct}%`, minHeight: d.min > 0 ? '4px' : '4px' }}
-                      title={`${formatStudyMinutes(d.min)} · ${d.sessions} sessions`}
+                      title={formatStudyMinutes(d.min)}
                     />
                   </div>
                   <span className="text-[10px] font-medium text-stone-500">{d.day}</span>
                 </div>
               )
             })}
-          </div>
-          <div className="flex items-center gap-3 mt-3 text-[10px] text-stone-400">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 bg-emerald-400 rounded-sm" /> Goal hit</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 bg-stone-700 rounded-sm" /> Studied</span>
           </div>
         </div>
       </section>
@@ -90,14 +77,14 @@ export function ReportsPage({ appState }) {
         <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">By Subject</p>
         <div className="bg-white border border-stone-100 rounded-2xl divide-y divide-stone-50 shadow-sm">
           {subjectList.length === 0 ? (
-            <div className="p-6 text-center text-sm text-stone-400">No sessions logged yet</div>
-          ) : subjectList.map((s, i) => {
-            const pct = totalStudyMin > 0 ? (s.minutes / totalStudyMin) * 100 : 0
+            <div className="p-6 text-center text-sm text-stone-400">No study data yet — complete a daily plan first</div>
+          ) : subjectList.map((s) => {
+            const pct = totalMin > 0 ? (s.minutes / totalMin) * 100 : 0
             return (
-              <div key={i} className="p-4">
+              <div key={s.name} className="p-4">
                 <div className="flex justify-between items-baseline mb-1.5">
                   <span className="text-sm font-medium text-stone-700 truncate flex-1">{s.name}</span>
-                  <span className="text-xs text-stone-500 font-medium ml-3 shrink-0">{formatStudyMinutes(s.minutes)} · {s.sessions}</span>
+                  <span className="text-xs text-stone-500 font-medium ml-3 shrink-0">{formatStudyMinutes(s.minutes)} · {s.doneCount} done</span>
                 </div>
                 <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
                   <div className="h-full bg-stone-700 rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -108,13 +95,13 @@ export function ReportsPage({ appState }) {
         </div>
       </section>
 
-      <DayByDay appState={appState} dayQuery={dayQuery} setDayQuery={setDayQuery} dayFilter={dayFilter} setDayFilter={setDayFilter} />
+      <DayByDay appState={appState} dayQuery={dayQuery} setDayQuery={setDayQuery} dayFilter={dayFilter} setDayFilter={setDayFilter} today={today} yesterday={yesterday} />
 
       <section className="mb-6">
         <div className="bg-stone-900 text-white rounded-2xl p-5 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase">All-Time Total</p>
-            <p className="text-2xl font-semibold mt-1">{formatStudyMinutes(totalStudyMin)}</p>
+            <p className="text-2xl font-semibold mt-1">{formatStudyMinutes(totalMin)}</p>
           </div>
           <ChartNoAxesColumnIncreasing size={32} strokeWidth={1.5} className="text-stone-500" />
         </div>
@@ -123,34 +110,33 @@ export function ReportsPage({ appState }) {
   )
 }
 
-function DayByDay({ appState, dayQuery, setDayQuery, dayFilter, setDayFilter }) {
-  const today = todayStr()
-  const eventDates = new Set((appState.sessionEvents || []).map((e) => e.date))
-  ;(appState.targets || []).forEach((t) => { if (t.date) eventDates.add(t.date) })
-  if (appState.activeTarget?.date) eventDates.add(appState.activeTarget.date)
-  eventDates.add(today)
-  const sortedDates = [...eventDates].sort((a, b) => b.localeCompare(a))
+function DayByDay({ appState, dayQuery, setDayQuery, dayFilter, setDayFilter, today, yesterday }) {
+  const allDates = new Set([
+    ...(appState.planHistory || []).map((p) => p.date),
+    today,
+  ])
+  const sortedDates = [...allDates].sort((a, b) => b.localeCompare(a))
+
   let rows = sortedDates.map((key) => {
-    const s = computeDailySummary(appState, key)
-    const d = new Date(key + 'T00:00:00')
+    const r = computeDayReport(appState, key)
     const isToday = key === today
-    const isYesterday = key === yesterdayStr()
+    const isYesterday = key === yesterday
+    const d = new Date(`${key}T00:00:00`)
     return {
       key,
       label: isToday ? 'Today' : isYesterday ? 'Yesterday' : d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' }),
-      summary: s,
+      report: r,
     }
-  })
-  if (dayFilter === 'goal') rows = rows.filter((r) => r.summary.target && r.summary.achieved)
-  else if (dayFilter === 'missed') rows = rows.filter((r) => r.summary.target && !r.summary.achieved)
-  else if (dayFilter === 'studied') rows = rows.filter((r) => r.summary.totalMin > 0)
+  }).filter((r) => r.report)
+
+  if (dayFilter === 'studied') rows = rows.filter((r) => r.report.totalMin > 0)
   if (dayQuery.trim()) {
     const q = dayQuery.trim().toLowerCase()
-    rows = rows.filter((r) => {
-      if (r.label.toLowerCase().includes(q)) return true
-      if (r.key.includes(q)) return true
-      return Object.values(r.summary.subjectsBreakdown).some((s) => s.name.toLowerCase().includes(q))
-    })
+    rows = rows.filter((r) =>
+      r.label.toLowerCase().includes(q) ||
+      r.key.includes(q) ||
+      r.report.subjects.some((s) => s.name.toLowerCase().includes(q)),
+    )
   }
 
   return (
@@ -171,44 +157,36 @@ function DayByDay({ appState, dayQuery, setDayQuery, dayFilter, setDayFilter }) 
             className="bg-white border border-stone-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-stone-400"
           >
             <option value="all">All days</option>
-            <option value="goal">Goal hit ✓</option>
-            <option value="missed">Goal missed</option>
             <option value="studied">Studied</option>
           </select>
         </div>
       </div>
       <div className="bg-white border border-stone-100 rounded-2xl divide-y divide-stone-50 shadow-sm overflow-hidden">
         {rows.length === 0 ? (
-          <div className="p-6 text-center text-sm text-stone-400">No days match your filter</div>
-        ) : rows.map((r) => {
-          const subjectsList = Object.values(r.summary.subjectsBreakdown)
-          return (
-            <div key={r.key} className="p-4">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-stone-800">{r.label}</span>
-                  {r.summary.target && (
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${r.summary.achieved ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                      {r.summary.achieved ? '✓ Goal hit' : `${r.summary.achievedLabel} / ${r.summary.goalLabel}`}
-                    </span>
-                  )}
-                </div>
-                <span className="text-xs font-semibold text-stone-700">
-                  {formatStudyMinutes(r.summary.totalMin)} · {r.summary.totalSessions} sess
-                </span>
+          <div className="p-6 text-center text-sm text-stone-400">No days match</div>
+        ) : rows.map((r) => (
+          <div key={r.key} className="p-4">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-stone-800">{r.label}</span>
+                {r.report.isActive && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">In progress</span>}
               </div>
-              {subjectsList.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {subjectsList.map((s, i) => (
-                    <span key={i} className="text-[10px] bg-stone-50 border border-stone-100 text-stone-600 px-2 py-0.5 rounded-full">
-                      {s.name} <span className="text-stone-400 ml-1">{formatStudyMinutes(s.minutes)}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
+              <span className="text-xs font-semibold text-stone-700">
+                {formatStudyMinutes(r.report.totalMin)} · {r.report.doneCount}/{r.report.totalCount} done
+              </span>
             </div>
-          )
-        })}
+            {r.report.subjects.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {r.report.subjects.map((s, i) => (
+                  <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full border ${s.status === 'done' ? 'bg-stone-800 text-white border-stone-800' : 'bg-stone-50 border-stone-100 text-stone-600'}`}>
+                    {s.name} <span className="opacity-60 ml-1">{formatStudyMinutes(s.min)}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+            {r.report.endNote && <p className="text-xs text-stone-400 mt-2 italic">🌙 {r.report.endNote}</p>}
+          </div>
+        ))}
       </div>
     </section>
   )

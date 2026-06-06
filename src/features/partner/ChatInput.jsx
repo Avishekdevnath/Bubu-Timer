@@ -33,7 +33,6 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
     
     selectedFiles.forEach(file => {
       if (file.uploadStatus === 'pending') {
-        console.log('🚀 Auto-uploading pending file:', file.file.name)
         uploadFile(file.id, (onProgress) => api.uploadAttachment(roomCode, file.file, onProgress))
       }
     })
@@ -42,18 +41,11 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
   function submit(e) {
     if (e) e.preventDefault()
     
-    console.log('📝 Submit called', { selectedFilesCount: selectedFiles.length, textLength: val.length, isRecording })
-    
-    // If there are attachments, use attachment handler instead
     if (selectedFiles.length > 0) {
-      console.log('📎 Routing to handleSendWithAttachments (found', selectedFiles.length, 'files)')
       handleSendWithAttachments()
       return
     }
-    
-    // Otherwise, send text message
     if (!val.trim()) return
-    console.log('💬 Sending text message')
     onSend(val)
     setVal('')
   }
@@ -93,54 +85,34 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
 
   function handleFileInputChange(e) {
     const files = e.target.files
-    console.log('📁 File input changed:', files?.length || 0, 'files selected')
     if (files) {
-      console.log('Adding files:', Array.from(files).map(f => ({ name: f.name, size: f.size, type: f.type })))
       addFiles(files)
-      // Files will be auto-uploaded by useEffect
     }
     // Reset input so same file can be selected again
     e.target.value = ''
   }
 
   function handleSendWithAttachments() {
-    console.log('📎 handleSendWithAttachments called', { selectedFilesCount: selectedFiles.length })
-    
-    if (!selectedFiles.length) {
-      console.warn('⚠️ No files selected')
-      return
-    }
+    if (!selectedFiles.length) return
 
-    // Check if all files are uploaded
     const uploadedFiles = selectedFiles.filter(f => f.uploadStatus === 'uploaded')
     const failedFiles = selectedFiles.filter(f => f.uploadStatus === 'error')
-    
-    if (uploadedFiles.length === 0) {
-      console.warn('⚠️ No files uploaded yet')
-      return
-    }
+
+    if (uploadedFiles.length === 0) return
 
     if (failedFiles.length > 0) {
-      console.warn('⚠️ Some files failed to upload:', failedFiles)
       alert(`${failedFiles.length} file(s) failed to upload. Sending ${uploadedFiles.length} successful uploads.`)
     }
 
-    // Build attachments from uploaded files
     const attachments = uploadedFiles.map(f => ({
       imageUrl: f.imageUrl,
       fileName: f.fileName,
       size: f.size,
     }))
 
-    console.log('📨 Sending message with', attachments.length, 'uploaded attachments:', attachments)
-    onSend({
-      text: val.trim() || '',
-      attachments,
-    })
-
+    onSend({ text: val.trim() || '', attachments })
     setVal('')
     clearFiles()
-    console.log('✨ Message sent and files cleared')
   }
 
   // Check if any files are still uploading

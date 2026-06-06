@@ -76,7 +76,6 @@ export function useFileUploader() {
         })
       })
         .then((result) => {
-          console.log(`✅ File ${fileId} uploaded:`, result)
           setSelectedFiles((current) => {
             const idx = current.findIndex((f) => f.id === fileId)
             if (idx !== -1) {
@@ -90,7 +89,6 @@ export function useFileUploader() {
           })
         })
         .catch((err) => {
-          console.error(`❌ Upload failed for ${fileId}:`, err)
           setSelectedFiles((current) => {
             const idx = current.findIndex((f) => f.id === fileId)
             if (idx !== -1) {

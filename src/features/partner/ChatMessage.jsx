@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react'
+import { memo, useRef, useState, useEffect } from 'react'
 import { Check, CheckCheck, Pin, Reply, Star } from 'lucide-react'
 import { MessageContent } from './MessageContent.jsx'
 import { VoicePlayer } from './VoicePlayer.jsx'
@@ -7,8 +7,8 @@ import { AttachmentPreview } from './AttachmentPreview.jsx'
 const SWIPE_THRESHOLD = 60  // px to trigger reply
 const SWIPE_MAX = 100       // visual cap
 
-export function ChatMessage({
-  msg, idx, isMe, myUid, blurred, msgRef,
+export const ChatMessage = memo(function ChatMessage({
+  msg, isMe, myUid, blurred, msgRef,
   activeReactionId, setActiveReactionId,
   editingMsgId, editText, setEditText, setEditingMsgId,
   isPinned, isStarred, partnerLastReadTs, partnerLastDeliveredTs,
@@ -233,4 +233,14 @@ export function ChatMessage({
       </div>
     </div>
   )
-}
+}, (prev, next) =>
+  prev.msg === next.msg &&
+  prev.blurred === next.blurred &&
+  prev.isPinned === next.isPinned &&
+  prev.isStarred === next.isStarred &&
+  prev.partnerLastReadTs === next.partnerLastReadTs &&
+  prev.partnerLastDeliveredTs === next.partnerLastDeliveredTs &&
+  prev.activeReactionId === next.activeReactionId &&
+  prev.editingMsgId === next.editingMsgId &&
+  prev.editText === next.editText
+)

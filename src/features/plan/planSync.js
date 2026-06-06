@@ -8,6 +8,7 @@ export function toPlanPayload(plan) {
     endedAt: plan.endedAt ?? null,
     items: (plan.items || []).map((it) => ({
       id: it.id,
+      subjectId: it.subjectId ?? null,
       subjectName: it.subjectName || '',
       desc: it.desc || '',
       targetSec: it.targetSec || 0,
@@ -28,6 +29,7 @@ export function fromPlanPayload(raw) {
     endedAt: raw.endedAt ?? null,
     items: (raw.items || []).map((it) => ({
       id: it.id,
+      subjectId: it.subjectId ?? null,
       subjectName: it.subjectName || '',
       desc: it.desc || '',
       targetSec: it.targetSec || 0,

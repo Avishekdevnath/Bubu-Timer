@@ -75,6 +75,38 @@ export function markItemDone(state, { note, now }) {
   return freezeActive(state, { note, now, status: 'done' })
 }
 
+export function removeItemFromPlan(state, itemId) {
+  if (!state.dailyPlan) return state
+  const plan = state.dailyPlan
+  if (plan.activeItemId === itemId) throw new Error('Cannot remove a running item')
+  return {
+    ...state,
+    dailyPlan: {
+      ...plan,
+      items: plan.items.filter((it) => it.id !== itemId),
+    },
+  }
+}
+
+export function addItemToPlan(state, { subjectId, subjectName, desc, targetSec }) {
+  if (!state.dailyPlan) return state
+  const item = {
+    id: newId(),
+    subjectId: subjectId || null,
+    subjectName: subjectName || 'Subject',
+    desc: desc || '',
+    targetSec: Math.max(60, targetSec || 0),
+    elapsedSec: 0,
+    runStartTs: null,
+    status: 'idle',
+    logs: [],
+  }
+  return {
+    ...state,
+    dailyPlan: { ...state.dailyPlan, items: [...state.dailyPlan.items, item] },
+  }
+}
+
 function archive(state, plan, { endNote = null, now }) {
   const items = plan.items.map((it) =>
     it.runStartTs

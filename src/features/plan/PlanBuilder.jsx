@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { DurationControl } from './DurationControl.jsx'
+import { DescEditor } from './DescEditor.jsx'
 
 export function PlanBuilder({ subjects, onSave, onCancel }) {
   const [rows, setRows] = useState([])
@@ -29,10 +30,11 @@ export function PlanBuilder({ subjects, onSave, onCancel }) {
             </select>
             <button onClick={() => remove(row.key)} className="px-3 text-stone-400 hover:text-red-500">✕</button>
           </div>
-          <input value={row.desc} onChange={(e) => patch(row.key, { desc: e.target.value })}
-            placeholder="What to read (e.g. Ch.15 p.396-435)"
-            className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm mb-1 outline-none focus:border-stone-400" />
-          <DurationControl label="Time" value={row.minutes} min={5} max={300} step={5} chips={[15, 30, 45, 60, 90]}
+          <div className="mb-2">
+            <DescEditor value={row.desc} onChange={(v) => patch(row.key, { desc: v })}
+              placeholder="What to read (e.g. Ch.15 p.396-435)" />
+          </div>
+          <DurationControl label="Time" value={row.minutes} min={5} max={720} step={5} chips={[15, 30, 45, 60, 90, 120, 180]}
             onCommit={(v) => patch(row.key, { minutes: v })} />
         </div>
       ))}
