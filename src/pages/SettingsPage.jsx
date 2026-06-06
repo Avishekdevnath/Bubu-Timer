@@ -52,12 +52,15 @@ function DurationControl({ label, value, min, max, step, chips, onCommit }) {
 }
 
 export function SettingsPage({
-  appState, patchState, currentUser, profileForm, setProfileForm, saveProfile,
+  appState, patchState, currentUser, room, profileForm, setProfileForm, saveProfile,
   soundOn, setSoundOn, chatSoundOn, setChatSoundOn, playDing, playChatPing,
   setReport, setResetOpen,
 }) {
   const navigate = useNavigate()
   const accountLabel = currentUser?.email || (currentUser?.isGuest ? 'Guest mode' : 'Not signed in')
+  const pair = room?.pair
+  const partnerConnected = !!pair?.connected
+  const partnerLiveName = pair?.partnerNick || pair?.data?.name || ''
   return (
     <div className="w-full px-4 md:px-6 pt-6">
       <div className="flex justify-between items-start mb-6">
@@ -110,7 +113,16 @@ export function SettingsPage({
               </div>
               <div>
                 <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1.5">Partner Name</p>
-                <input className="field-in mb-0" value={profileForm.partnerName} onChange={(e) => setProfileForm({ ...profileForm, partnerName: e.target.value })} />
+                <div className="field-in mb-0 flex items-center justify-between bg-stone-50 text-stone-700 cursor-default">
+                  <span className={partnerConnected ? '' : 'text-stone-400'}>
+                    {partnerConnected ? (partnerLiveName || 'Partner') : 'Not connected'}
+                  </span>
+                  {partnerConnected && <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />}
+                </div>
+                <p className="text-[10px] text-stone-400 mt-1">
+                  Auto-synced from your buddy room.{' '}
+                  <button type="button" onClick={() => navigate('/buddy')} className="font-semibold text-stone-600 underline">Set nickname</button>
+                </p>
               </div>
             </div>
             <div className="px-4 pb-4">

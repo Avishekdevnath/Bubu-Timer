@@ -546,7 +546,7 @@ function App() {
               patchState={patchState} navigate={navigate} showToast={showToast}
             />} />
             <Route path="/settings" element={<SettingsPage
-              appState={appState} patchState={patchState} currentUser={currentUser}
+              appState={appState} patchState={patchState} currentUser={currentUser} room={room}
               profileForm={profileForm} setProfileForm={setProfileForm} saveProfile={saveProfile}
               soundOn={soundOn} setSoundOn={setSoundOn} chatSoundOn={chatSoundOn} setChatSoundOn={setChatSoundOn}
               playDing={playDing} playChatPing={playChatPing}
