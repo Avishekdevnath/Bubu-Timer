@@ -1,4 +1,4 @@
-import { createDefaultState, PAIR_KEY, STORAGE_KEY, THEME_KEY } from '../state/defaultState.js'
+import { createDefaultState, DEFAULT_CUTOFF_MIN, PAIR_KEY, STATE_VERSION, STORAGE_KEY, THEME_KEY } from '../state/defaultState.js'
 
 export function loadStoredState() {
   try {
@@ -7,27 +7,14 @@ export function loadStoredState() {
     const saved = JSON.parse(raw)
     return {
       ...createDefaultState(),
-      subjects: Array.isArray(saved.subjects) ? saved.subjects.map((s) => ({ ...s, chapters: Array.isArray(s.chapters) ? s.chapters : [] })) : [],
+      subjects: Array.isArray(saved.subjects)
+        ? saved.subjects.map((s) => ({ ...s, chapters: Array.isArray(s.chapters) ? s.chapters : [] }))
+        : [],
       subjectProgress: saved.subjectProgress && typeof saved.subjectProgress === 'object' ? saved.subjectProgress : {},
       chapterProgress: saved.chapterProgress && typeof saved.chapterProgress === 'object' ? saved.chapterProgress : {},
-      targets: Array.isArray(saved.targets) ? saved.targets : [],
-      activeTarget: saved.activeTarget && typeof saved.activeTarget === 'object' ? saved.activeTarget : null,
-      sessionEvents: Array.isArray(saved.sessionEvents) ? saved.sessionEvents : [],
-      lastReportShownDate: saved.lastReportShownDate || null,
-      sessions: saved.sessions || 0,
-      bankMin: saved.bankMin || 0,
-      studyMin: saved.studyMin || 0,
-      activeSubjectId: saved.activeSubjectId || null,
-      activeChapterId: saved.activeChapterId || null,
-      subjectsCompleted: saved.subjectsCompleted || 0,
-      studyDuration: saved.studyDuration || 20,
-      breakDuration: saved.breakDuration || 5,
-      mode: saved.mode || 'idle',
-      timeLeft: saved.timeLeft != null ? saved.timeLeft : (saved.studyDuration || 20) * 60,
-      totalTime: saved.totalTime || (saved.studyDuration || 20) * 60,
-      endTs: saved.endTs || null,
-      pausedRemaining: saved.pausedRemaining != null ? saved.pausedRemaining : null,
-      pendingBreakSec: saved.pendingBreakSec != null ? saved.pendingBreakSec : null,
+      dayCutoff: typeof saved.dayCutoff === 'number' ? saved.dayCutoff : DEFAULT_CUTOFF_MIN,
+      dailyPlan: saved.version === STATE_VERSION && saved.dailyPlan ? saved.dailyPlan : null,
+      planHistory: saved.version === STATE_VERSION && Array.isArray(saved.planHistory) ? saved.planHistory : [],
     }
   } catch {
     return createDefaultState()
@@ -38,17 +25,8 @@ export function saveStoredState(state) {
   try {
     const persisted = { ...state }
     delete persisted.logs
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        ...persisted,
-        isRunning: state.mode !== 'idle' && !!state.endTs,
-        savedAt: Date.now(),
-      }),
-    )
-  } catch {
-    // private mode or quota
-  }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...persisted, savedAt: Date.now() }))
+  } catch { /* private mode or quota */ }
 }
 
 export function loadThemeValue() {

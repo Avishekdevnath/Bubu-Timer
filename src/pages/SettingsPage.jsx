@@ -1,77 +1,37 @@
 import { ChartNoAxesColumnIncreasing, ChevronRight, FileText, User } from 'lucide-react'
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { resetToIdle } from '../features/timer/timerEngine.js'
-import { computeDailySummary } from '../features/reports/reportsModel.js'
-import { formatStudyMinutes } from '../lib/format.js'
-import { todayStr } from '../lib/dates.js'
-
-function DurationControl({ label, value, min, max, step, chips, onCommit }) {
-  const [draft, setDraft] = useState(String(value))
-
-  const clamp = (n) => Math.max(min, Math.min(max, n))
-  const commit = (raw) => {
-    const n = parseInt(raw, 10)
-    const next = Number.isFinite(n) ? clamp(n) : value
-    setDraft(String(next))
-    if (next !== value) onCommit(next)
-  }
-
-  return (
-    <div className="p-4 border-b border-stone-50 last:border-b-0">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-stone-700">{label}</span>
-        <div className="flex items-center gap-2">
-          <button onClick={() => commit(value - step)}
-            className="w-7 h-7 rounded-full border border-stone-200 text-stone-600 flex items-center justify-center hover:bg-stone-50">−</button>
-          <div className="flex items-center gap-1">
-            <input
-              type="text" inputMode="numeric" pattern="[0-9]*"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ''))}
-              onBlur={(e) => commit(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
-              className="w-12 text-center text-sm font-semibold text-stone-800 bg-stone-50 border border-stone-200 rounded-lg py-1 focus:border-stone-400 focus:outline-none"
-            />
-            <span className="text-xs text-stone-400">min</span>
-          </div>
-          <button onClick={() => commit(value + step)}
-            className="w-7 h-7 rounded-full border border-stone-200 text-stone-600 flex items-center justify-center hover:bg-stone-50">+</button>
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-1.5 mt-3">
-        {chips.map((c) => (
-          <button key={c} onClick={() => commit(c)}
-            className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${value === c ? 'bg-stone-900 text-white border-stone-900' : 'bg-stone-50 text-stone-600 border-stone-200 hover:bg-stone-100'}`}>
-            {c}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
+import { signOut } from 'firebase/auth'
+import { auth } from '../lib/firebase.js'
+import { liveElapsedSec } from '../features/plan/planModel.js'
+import { minutesToClock12h } from '../lib/dates.js'
 
 export function SettingsPage({
   appState, patchState, currentUser, room, profileForm, setProfileForm, saveProfile,
   soundOn, setSoundOn, chatSoundOn, setChatSoundOn, playDing, playChatPing,
-  setReport, setResetOpen,
+  setResetOpen,
+  authTab, setAuthTab, authForms, setAuthForms, login, signup, loginWithGoogle, setCurrentUser,
 }) {
   const navigate = useNavigate()
   const accountLabel = currentUser?.email || (currentUser?.isGuest ? 'Guest mode' : 'Not signed in')
   const pair = room?.pair
   const partnerConnected = !!pair?.connected
   const partnerLiveName = pair?.partnerNick || pair?.data?.name || ''
+
+  const items = appState.dailyPlan?.items || []
+  // eslint-disable-next-line react-hooks/purity
+  const studiedMin = Math.floor(items.reduce((sum, it) => sum + liveElapsedSec(it, Date.now()), 0) / 60)
+  const doneCount = items.filter((i) => i.status === 'done').length
+
+  const cutoffH = String(Math.floor(appState.dayCutoff / 60)).padStart(2, '0')
+  const cutoffM = String(appState.dayCutoff % 60).padStart(2, '0')
+
   return (
     <div className="w-full px-4 md:px-6 pt-6">
       <div className="flex justify-between items-start mb-6">
         <div>
           <h2 className="text-2xl font-light tracking-tight text-stone-800">Settings</h2>
-          <p className="text-sm text-stone-500 mt-0.5">{appState.studyDuration}m focus · {appState.breakDuration}m break</p>
+          <p className="text-sm text-stone-500 mt-0.5">{items.length} subjects · {studiedMin}m studied</p>
         </div>
-        <button onClick={() => setReport(computeDailySummary(appState, todayStr()))}
-          className="flex items-center gap-1.5 text-xs font-bold tracking-wide bg-stone-900 text-white px-4 py-2.5 rounded-xl shadow-sm hover:bg-stone-800 transition-colors">
-          <ChartNoAxesColumnIncreasing size={14} /> Today
-        </button>
       </div>
 
       <div className="space-y-4">
@@ -134,20 +94,18 @@ export function SettingsPage({
         </section>
 
         <section>
-          <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Timer Rules</p>
-          <div className="bg-white border border-stone-100 rounded-2xl shadow-sm overflow-hidden">
-            <DurationControl
-              key={`focus-${appState.studyDuration}`}
-              label="Focus Duration" value={appState.studyDuration}
-              min={1} max={120} step={5} chips={[15, 20, 25, 30, 45, 60]}
-              onCommit={(v) => patchState((s) => resetToIdle({ ...s, studyDuration: v }))}
-            />
-            <DurationControl
-              key={`break-${appState.breakDuration}`}
-              label="Break Duration" value={appState.breakDuration}
-              min={1} max={60} step={1} chips={[5, 10, 15, 20, 30]}
-              onCommit={(v) => patchState((s) => ({ ...s, breakDuration: v }))}
-            />
+          <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Day Schedule</p>
+          <div className="bg-white border border-stone-100 rounded-2xl shadow-sm p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-stone-700">Day ends at</p>
+              <p className="text-xs text-stone-400 mt-0.5">Auto-archives your plan · {minutesToClock12h(appState.dayCutoff)}</p>
+            </div>
+            <input type="time" value={`${cutoffH}:${cutoffM}`}
+              onChange={(e) => {
+                const [h, m] = e.target.value.split(':').map(Number)
+                patchState((s) => ({ ...s, dayCutoff: h * 60 + m }))
+              }}
+              className="border border-stone-200 rounded-lg px-2 py-1.5 text-sm" />
           </div>
         </section>
 
@@ -195,17 +153,79 @@ export function SettingsPage({
           <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Stats</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Sessions', value: appState.sessions },
-              { label: 'Subjects', value: appState.subjects.length },
-              { label: 'Studied', value: formatStudyMinutes(appState.studyMin) },
-              { label: 'Bank', value: `${appState.bankMin}m` },
-            ].map(s => (
+              { label: 'Subjects today', value: items.length },
+              { label: 'Done', value: doneCount },
+              { label: 'Studied', value: `${studiedMin}m` },
+              { label: 'Past days', value: (appState.planHistory || []).length },
+            ].map((s) => (
               <div key={s.label} className="bg-white border border-stone-100 rounded-2xl p-4 flex flex-col items-center shadow-sm">
                 <span className="text-xl font-semibold text-stone-800">{s.value}</span>
                 <span className="text-[10px] font-bold tracking-wider text-stone-400 mt-1">{s.label}</span>
               </div>
             ))}
           </div>
+        </section>
+
+        <section>
+          <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Account</p>
+          {currentUser && !currentUser.isGuest ? (
+            <div className="bg-white border border-stone-100 rounded-2xl shadow-sm p-4 flex items-center gap-3">
+              <div className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center text-stone-400 shrink-0">
+                {currentUser.photoURL
+                  ? <img src={currentUser.photoURL} alt="" className="w-10 h-10 rounded-full object-cover" />
+                  : <User size={18} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-stone-800 truncate">{currentUser.username || 'No name'}</p>
+                <p className="text-xs text-stone-400 truncate">{currentUser.email}</p>
+              </div>
+              <button onClick={() => signOut(auth)}
+                className="text-xs font-semibold text-red-500 hover:text-red-700 transition-colors shrink-0">
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white border border-stone-100 rounded-2xl shadow-sm overflow-hidden">
+              <div className="flex border-b border-stone-100">
+                <button onClick={() => setAuthTab('login')}
+                  className={`flex-1 py-3 text-sm font-semibold transition-colors ${authTab === 'login' ? 'text-stone-900 border-b-2 border-stone-900 -mb-px' : 'text-stone-400'}`}>
+                  Sign In
+                </button>
+                <button onClick={() => setAuthTab('signup')}
+                  className={`flex-1 py-3 text-sm font-semibold transition-colors ${authTab === 'signup' ? 'text-stone-900 border-b-2 border-stone-900 -mb-px' : 'text-stone-400'}`}>
+                  Create Account
+                </button>
+              </div>
+              <div className="p-4">
+                {authTab === 'login' ? (
+                  <form onSubmit={login} className="space-y-2">
+                    <input className="field-in" type="email" placeholder="your@email.com" value={authForms.loginEmail} onChange={(e) => setAuthForms({ ...authForms, loginEmail: e.target.value })} />
+                    <input className="field-in" type="password" placeholder="Password" value={authForms.loginPassword} onChange={(e) => setAuthForms({ ...authForms, loginPassword: e.target.value })} />
+                    <button className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl">Sign In</button>
+                  </form>
+                ) : (
+                  <form onSubmit={signup} className="space-y-2">
+                    <input className="field-in" type="email" placeholder="your@email.com" value={authForms.signupEmail} onChange={(e) => setAuthForms({ ...authForms, signupEmail: e.target.value })} />
+                    <input className="field-in" type="password" placeholder="At least 6 characters" value={authForms.signupPassword} onChange={(e) => setAuthForms({ ...authForms, signupPassword: e.target.value })} />
+                    <input className="field-in" placeholder="Your name" value={authForms.signupUsername} onChange={(e) => setAuthForms({ ...authForms, signupUsername: e.target.value })} />
+                    <button className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl">Create Account</button>
+                  </form>
+                )}
+                <div className="flex items-center gap-3 my-3">
+                  <div className="flex-1 h-px bg-stone-100" /><span className="text-xs text-stone-400">OR</span><div className="flex-1 h-px bg-stone-100" />
+                </div>
+                <button type="button" onClick={loginWithGoogle}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-stone-200 rounded-xl text-sm font-medium text-stone-700 hover:bg-stone-50 transition-colors mb-2">
+                  <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34.5 6.1 29.5 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.4 0 10.3-2.1 14-5.5l-6.5-5.4C29.6 34.7 26.9 36 24 36c-5.3 0-9.7-3.4-11.3-8L6 33.1C9.2 39.5 16 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.5l6.5 5.4C40.9 36 44 30.5 44 24c0-1.2-.1-2.3-.4-3.5z"/></svg>
+                  Continue with Google
+                </button>
+                <button onClick={() => setCurrentUser({ uid: `guest-${Date.now()}`, isGuest: true, username: 'Guest', partnerName: '' })}
+                  className="w-full py-2.5 border border-stone-200 rounded-xl text-sm text-stone-500 hover:bg-stone-50 transition-colors">
+                  Continue as Guest
+                </button>
+              </div>
+            </div>
+          )}
         </section>
 
         <section>

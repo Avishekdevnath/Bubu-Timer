@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import {
-  ClipboardList,
+  Home,
+  MessageCircle,
   Settings,
   Timer,
-  User,
-  Users,
 } from 'lucide-react'
 import {
   createUserWithEmailAndPassword,
@@ -21,46 +20,47 @@ import { pad } from './lib/format.js'
 import { todayStr } from './lib/dates.js'
 import { loadStoredState, loadThemeValue, saveStoredState, saveThemeValue } from './lib/storage.js'
 import { flushCloudPushNow, mergeCloudIntoLocal, pullCloudState, queueCloudPush } from './lib/cloudSync.js'
-import { getActiveChapter, getActiveSubject } from './features/subjects/subjectsModel.js'
-import { checkRolloverActiveTarget, getTargetProgress } from './features/goals/goalsModel.js'
-import { completeStudySession, resetToIdle, startBreak, startStudy } from './features/timer/timerEngine.js'
-import { BreakPrompt } from './components/Modal.jsx'
+import { buildPlan, startItem, pauseItem, markItemDone, endDay, autoArchiveIfPastCutoff } from './features/plan/planModel.js'
+import { dhakaNowMinutes } from './lib/dates.js'
+import { ProgressNoteModal } from './components/ProgressNoteModal.jsx'
+import { EndDayModal } from './components/EndDayModal.jsx'
 import { usePartnerRoom } from './features/partner/usePartnerRoom.js'
 import { PartnerPage } from './pages/PartnerPage.jsx'
 import { ReportsPage } from './pages/ReportsPage.jsx'
 import { LogPage } from './pages/LogPage.jsx'
 import { SettingsPage } from './pages/SettingsPage.jsx'
-import { AccountPage } from './pages/AccountPage.jsx'
 import { TimerPage } from './pages/TimerPage.jsx'
+import { HomePage } from './pages/HomePage.jsx'
+import { PartnerSettingsPage } from './pages/PartnerSettingsPage.jsx'
 import { SubjectsPage } from './pages/SubjectsPage.jsx'
 import { PinnedPage } from './pages/PinnedPage.jsx'
 import { StarredPage } from './pages/StarredPage.jsx'
 import { ChecklistsPage } from './pages/ChecklistsPage.jsx'
 import { SubjectModal } from './features/subjects/SubjectModal.jsx'
-import { GoalModal } from './features/goals/GoalModal.jsx'
 import { ReportModal } from './features/reports/ReportModal.jsx'
 import { ConfirmReset } from './components/ConfirmReset.jsx'
 
 const tabs = [
-  { label: 'Timer', path: '/', icon: Timer },
-  { label: 'Subjects', path: '/subjects', icon: ClipboardList },
-  { label: 'Partner', path: '/buddy', icon: Users },
+  { label: 'Home', path: '/home', icon: Home },
+  { label: 'Plan', path: '/', icon: Timer },
+  { label: 'Chat', path: '/buddy', icon: MessageCircle },
   { label: 'Settings', path: '/settings', icon: Settings },
-  { label: 'Account', path: '/account', icon: User },
 ]
 
 function App() {
   const navigate = useNavigate()
-  const [appState, setAppState] = useState(() => checkRolloverActiveTarget(loadStoredState()))
+  const [appState, setAppState] = useState(() =>
+    autoArchiveIfPastCutoff(loadStoredState(), { todayDate: todayStr(), nowMinutes: dhakaNowMinutes(), now: Date.now() }),
+  )
   const [toast, setToast] = useState(null)
   const [theme, setTheme] = useState(() => loadThemeValue())
   const [resetOpen, setResetOpen] = useState(false)
   const [subjectModal, setSubjectModal] = useState(null)
-  const [goalOpen, setGoalOpen] = useState(false)
   const [report, setReport] = useState(null)
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState(() => new Set())
-  const [bankUse, setBankUse] = useState('')
+  const [noteModal, setNoteModal] = useState(null)
+  const [endDayOpen, setEndDayOpen] = useState(false)
   const [authTab, setAuthTab] = useState('login')
   const [currentUser, setCurrentUser] = useState(null)
   const [authForms, setAuthForms] = useState({
@@ -86,10 +86,6 @@ function App() {
     saveStoredState(next)
     if (cloudUidRef.current) queueCloudPush(cloudUidRef.current, next)
   }
-
-  const activeSubject = getActiveSubject(appState)
-  const activeChapter = getActiveChapter(appState)
-  const targetProgress = getTargetProgress(appState, appState.activeTarget)
 
   function getAudioCtx() {
     if (!tickAudioCtx.current) {
@@ -308,101 +304,68 @@ function App() {
   // Partner room boot restore + auto-push moved into usePartnerRoom hook
 
   useEffect(() => {
-    if (appState.mode === 'idle' || !appState.endTs) return
+    const plan = appState.dailyPlan
+    if (!plan?.activeItemId) return
     const interval = setInterval(() => {
       setAppState((prev) => {
-        if (prev.mode === 'idle' || !prev.endTs) return prev
-        const remaining = Math.max(0, Math.ceil((prev.endTs - Date.now()) / 1000))
-        if (remaining > 0) {
-          const next = {
-            ...prev,
-            timeLeft: remaining,
-            studyMin:
-              prev.mode === 'study'
-                ? prev.sessions * prev.studyDuration + Math.floor((prev.studyDuration * 60 - remaining) / 60)
-                : prev.studyMin,
-          }
-          if (remaining % 10 === 0) persistState(next)
-          return next
-        }
-        if (prev.mode === 'study') {
-          const next = completeStudySession(prev, prev.studyDuration, todayStr())
-          persistState(next)
-          setTimeout(() => {
-            playDing()
-            showToast('Session done! Take a break or bank it.', 'study-t')
-          }, 0)
-          return next
-        }
-        const next = resetToIdle(prev)
-        persistState(next)
-        setTimeout(() => {
-          playDing()
-          showToast('Break done. Start next session.', 'break-t')
-        }, 0)
-        return next
+        const archived = autoArchiveIfPastCutoff(prev, { todayDate: todayStr(), nowMinutes: dhakaNowMinutes(), now: Date.now() })
+        if (archived !== prev) { persistState(archived); return archived }
+        if (Math.floor(Date.now() / 1000) % 10 === 0) persistState(prev)
+        return { ...prev }
       })
     }, 1000)
     return () => clearInterval(interval)
-    // playDing is stable closure; including it would cause needless effect resets
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appState.mode, appState.endTs])
+  }, [appState.dailyPlan?.activeItemId])
 
-  function handleMain() {
-    getAudioCtx() // unlock AudioContext on user gesture
-    if (appState.mode === 'idle') {
-      patchState((state) => startStudy(state))
-      addLog(`Started: ${activeChapter ? `${activeSubject?.name} -> ${activeChapter.name}` : activeSubject?.name || ''}`, 'ls')
+  function handleStartItem(itemId) {
+    getAudioCtx()
+    const plan = appState.dailyPlan
+    if (plan?.activeItemId && plan.activeItemId !== itemId) {
+      setNoteModal({ itemId: plan.activeItemId, mode: 'switchTo', nextItemId: itemId })
       return
     }
-    if (appState.mode === 'study') {
-      if (appState.endTs) {
-        patchState((state) => ({
-          ...state,
-          pausedRemaining: Math.max(0, Math.ceil((state.endTs - Date.now()) / 1000)),
-          endTs: null,
-        }))
-      } else {
-        patchState((state) => ({
-          ...state,
-          endTs: Date.now() + (state.pausedRemaining || state.timeLeft) * 1000,
-          pausedRemaining: null,
-        }))
-      }
-      return
+    patchState((s) => startItem(s, itemId, Date.now()))
+    const it = plan?.items.find((i) => i.id === itemId)
+    addLog(`Started: ${it?.subjectName || ''}`, 'ls')
+  }
+
+  function openPauseNote() {
+    const id = appState.dailyPlan?.activeItemId
+    if (id) setNoteModal({ itemId: id, mode: 'pause' })
+  }
+
+  function openDoneNote() {
+    const id = appState.dailyPlan?.activeItemId
+    if (id) setNoteModal({ itemId: id, mode: 'done' })
+  }
+
+  function submitNote(note) {
+    const m = noteModal
+    if (!m) return
+    try {
+      patchState((s) => {
+        if (m.mode === 'done') return markItemDone(s, { note, now: Date.now() })
+        const paused = pauseItem(s, { note, now: Date.now() })
+        return m.mode === 'switchTo' ? startItem(paused, m.nextItemId, Date.now()) : paused
+      })
+      addLog(`Progress: ${note}`, 'ls')
+    } catch (e) {
+      showToast(e.message, 'bank-t')
     }
-    bankCurrentBreak()
+    setNoteModal(null)
   }
 
-  function bankCurrentBreak() {
-    const minutes = Math.ceil(appState.timeLeft / 60)
-    patchState((state) => resetToIdle({ ...state, bankMin: state.bankMin + minutes }))
-    addLog(`Break skipped -> +${minutes} min banked`, 'lk')
-    showToast(`+${minutes} min banked`, 'bank-t')
+  function submitEndDay(endNote) {
+    patchState((s) => endDay(s, { endNote, now: Date.now() }))
+    addLog('Day ended', 'lk')
+    setEndDayOpen(false)
+    showToast('Day ended & archived', 'study-t')
   }
 
-  function acceptBreak() {
-    stopDing()
-    const seconds = appState.pendingBreakSec || appState.breakDuration * 60
-    patchState((state) => startBreak(state, seconds))
-    addLog(`Break started (${Math.round(seconds / 60)} min)`, 'lb')
-  }
-
-  function rejectBreak() {
-    stopDing()
-    const minutes = Math.ceil((appState.pendingBreakSec || appState.breakDuration * 60) / 60)
-    patchState((state) => resetToIdle({ ...state, bankMin: state.bankMin + minutes, pendingBreakSec: null }))
-    addLog(`Break rejected -> +${minutes} min banked`, 'lk')
-    showToast(`+${minutes} min banked`, 'bank-t')
-  }
-
-  function spendBank() {
-    const minutes = Number.parseInt(bankUse, 10)
-    if (!minutes || minutes <= 0) return showToast('Enter minutes', 'bank-t')
-    if (minutes > appState.bankMin) return showToast(`Only ${appState.bankMin} min in bank`, 'bank-t')
-    patchState((state) => startBreak({ ...state, bankMin: state.bankMin - minutes }, minutes * 60))
-    setBankUse('')
-    addLog(`Used ${minutes} min from bank`, 'lk')
+  function createPlan(items) {
+    patchState((s) => buildPlan(s, { date: todayStr(), items }))
+    showToast('Plan ready', 'study-t')
   }
 
 
@@ -477,11 +440,10 @@ function App() {
         </div>
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           {tabs.map(({ label, path, icon: Icon }) => (
-            <NavLink key={path} to={path} end={path === '/'}
+            <NavLink key={path} to={path} end
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all w-full ${
                   isActive ? 'bg-stone-100 text-stone-900' : 'text-stone-500 hover:bg-stone-50 hover:text-stone-800'
-
                 }`
               }
             >
@@ -499,13 +461,13 @@ function App() {
           ))}
         </nav>
         <div className="p-4 border-t border-stone-100">
-          <NavLink to="/account" className="flex items-center gap-3 bg-white px-3 py-2 rounded-xl border border-stone-100 shadow-sm hover:bg-stone-50 hover:border-stone-200 transition-colors cursor-pointer">
+          <NavLink to="/settings" className="flex items-center gap-3 bg-white px-3 py-2 rounded-xl border border-stone-100 shadow-sm hover:bg-stone-50 hover:border-stone-200 transition-colors cursor-pointer">
             <div className="w-7 h-7 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 shrink-0">
-              <User size={13} />
+              <Settings size={13} />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-stone-800 truncate">{currentUser?.username || currentUser?.email || 'Not signed in'}</p>
-              <p className="text-[10px] text-stone-400">{currentUser?.isGuest ? 'Guest' : currentUser ? 'Signed in' : 'Tap Account'}</p>
+              <p className="text-[10px] text-stone-400">{currentUser?.isGuest ? 'Guest' : currentUser ? 'Signed in' : 'Sign in'}</p>
             </div>
           </NavLink>
         </div>
@@ -532,13 +494,12 @@ function App() {
         {/* Screen content */}
         <main className={`flex-1 overflow-x-hidden ${useLocation().pathname === '/buddy' ? 'overflow-hidden' : 'overflow-y-auto pb-20 md:pb-6'}`}>
           <Routes>
+            <Route path="/home" element={<HomePage />} />
             <Route path="/" element={<TimerPage
-              appState={appState} patchState={patchState} targetProgress={targetProgress}
-              activeSubject={activeSubject} activeChapter={activeChapter}
-              soundOn={soundOn} setSoundOn={setSoundOn} setGoalOpen={setGoalOpen}
-              handleMain={handleMain} bankCurrentBreak={bankCurrentBreak}
-              bankUse={bankUse} setBankUse={setBankUse} spendBank={spendBank}
-              navigate={navigate}
+              appState={appState} room={room}
+              onStartItem={handleStartItem} onPause={openPauseNote} onDone={openDoneNote}
+              onEndDay={() => setEndDayOpen(true)} onCreatePlan={createPlan}
+              soundOn={soundOn} setSoundOn={setSoundOn} navigate={navigate}
             />} />
             <Route path="/subjects" element={<SubjectsPage
               appState={appState} search={search} setSearch={setSearch}
@@ -549,22 +510,18 @@ function App() {
               appState={appState} patchState={patchState} currentUser={currentUser} room={room}
               profileForm={profileForm} setProfileForm={setProfileForm} saveProfile={saveProfile}
               soundOn={soundOn} setSoundOn={setSoundOn} chatSoundOn={chatSoundOn} setChatSoundOn={setChatSoundOn}
-              playDing={playDing} playChatPing={playChatPing}
-              setReport={setReport} setResetOpen={setResetOpen}
+              playDing={playDing} playChatPing={playChatPing} setResetOpen={setResetOpen}
+              authTab={authTab} setAuthTab={setAuthTab} authForms={authForms} setAuthForms={setAuthForms}
+              login={login} signup={signup} loginWithGoogle={loginWithGoogle} setCurrentUser={setCurrentUser}
             />} />
-            <Route path="/account" element={<AccountPage
-              currentUser={currentUser} authTab={authTab} setAuthTab={setAuthTab}
-              authForms={authForms} setAuthForms={setAuthForms}
-              login={login} signup={signup} loginWithGoogle={loginWithGoogle}
-              setCurrentUser={setCurrentUser}
-            />} />
+            <Route path="/partner-settings" element={<PartnerSettingsPage room={room} showToast={showToast} />} />
             <Route path="/log" element={<LogPage appState={appState} patchState={patchState} />} />
             <Route path="/reports" element={<ReportsPage appState={appState} />} />
             <Route path="/buddy" element={<PartnerPage room={room} currentUser={currentUser} showToast={showToast} navigate={navigate} />} />
             <Route path="/buddy/pins" element={<PinnedPage room={room} navigate={navigate} />} />
             <Route path="/buddy/starred" element={<StarredPage room={room} navigate={navigate} />} />
             <Route path="/buddy/checklists" element={<ChecklistsPage room={room} navigate={navigate} />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
         </main>
       </div>
@@ -573,9 +530,9 @@ function App() {
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-stone-100 z-20 pb-safe">
         <div className="flex justify-around items-center px-2 py-3">
           {tabs.map(({ label, path, icon: Icon }) => (
-            <NavLink key={path} to={path} end={path === '/'}
+            <NavLink key={path} to={path} end
               className={({ isActive }) =>
-                `flex flex-col items-center gap-1 px-2 transition-colors ${isActive ? 'text-stone-900' : 'text-stone-400'}`
+                `flex flex-col items-center gap-1 px-3 transition-colors ${isActive ? 'text-stone-900' : 'text-stone-400'}`
               }
             >
               {({ isActive }) => (
@@ -596,9 +553,9 @@ function App() {
 
       {/* ── Overlays ── */}
       {toast ? <div className="toast show">{toast.message}</div> : null}
-      {appState.pendingBreakSec ? <BreakPrompt onAccept={acceptBreak} onReject={rejectBreak} onStopSound={stopDing} minutes={Math.round(appState.pendingBreakSec / 60)} /> : null}
+      {noteModal ? <ProgressNoteModal mode={noteModal.mode} onSubmit={submitNote} onCancel={() => setNoteModal(null)} /> : null}
+      {endDayOpen ? <EndDayModal onSubmit={submitEndDay} onCancel={() => setEndDayOpen(false)} /> : null}
       {subjectModal ? <SubjectModal modal={subjectModal} onClose={() => setSubjectModal(null)} appState={appState} patchState={patchState} setExpanded={setExpanded} showToast={showToast} /> : null}
-      {goalOpen ? <GoalModal onClose={() => setGoalOpen(false)} appState={appState} patchState={patchState} addLog={addLog} /> : null}
       {report ? <ReportModal summary={report} onClose={() => setReport(null)} /> : null}
       {resetOpen ? <ConfirmReset onClose={() => setResetOpen(false)} persistState={persistState} setAppState={setAppState} /> : null}
     </div>

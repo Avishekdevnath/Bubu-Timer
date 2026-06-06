@@ -5,6 +5,15 @@ export function formatClock(seconds) {
   return `${pad(Math.floor(safe / 60))}:${pad(safe % 60)}`
 }
 
+// seconds -> "MM:SS"; negative (overtime) -> "+MM:SS"
+export function formatRemaining(sec) {
+  const neg = sec < 0
+  const s = Math.abs(Math.floor(sec))
+  const mm = String(Math.floor(s / 60)).padStart(2, '0')
+  const ss = String(s % 60).padStart(2, '0')
+  return `${neg ? '+' : ''}${mm}:${ss}`
+}
+
 export function formatStudyMinutes(minutes) {
   const safe = Math.max(0, Math.floor(minutes || 0))
   const h = Math.floor(safe / 60)

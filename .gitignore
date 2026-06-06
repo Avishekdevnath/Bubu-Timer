@@ -14,6 +14,7 @@ dist-ssr
 
 # Internal docs (not needed on GitHub)
 IMPROVEMENTS.md
+docs/superpowers/
 
 # Build cache
 .playwright-cli/

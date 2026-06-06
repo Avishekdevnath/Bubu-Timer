@@ -2,29 +2,18 @@ export const STORAGE_KEY = 'bubu_state'
 export const THEME_KEY = 'sonali_theme'
 export const PAIR_KEY = 'bubu_pair'
 
+export const STATE_VERSION = 2
+export const DEFAULT_CUTOFF_MIN = 23 * 60 + 30 // 11:30 PM
+
 export function createDefaultState() {
   return {
+    version: STATE_VERSION,
     subjects: [],
     subjectProgress: {},
     chapterProgress: {},
-    targets: [],
-    activeTarget: null,
-    sessionEvents: [],
-    lastReportShownDate: null,
     logs: [],
-    mode: 'idle',
-    timeLeft: 20 * 60,
-    totalTime: 20 * 60,
-    endTs: null,
-    pausedRemaining: null,
-    pendingBreakSec: null,
-    sessions: 0,
-    bankMin: 0,
-    studyMin: 0,
-    activeSubjectId: null,
-    activeChapterId: null,
-    subjectsCompleted: 0,
-    studyDuration: 20,
-    breakDuration: 5,
+    dayCutoff: DEFAULT_CUTOFF_MIN,
+    dailyPlan: null,
+    planHistory: [],
   }
 }

@@ -34,18 +34,9 @@ const SYNCED_FIELDS = [
   'subjects',
   'subjectProgress',
   'chapterProgress',
-  'targets',
-  'activeTarget',
-  'sessionEvents',
-  'lastReportShownDate',
-  'sessions',
-  'bankMin',
-  'studyMin',
-  'activeSubjectId',
-  'activeChapterId',
-  'subjectsCompleted',
-  'studyDuration',
-  'breakDuration',
+  'dailyPlan',
+  'planHistory',
+  'dayCutoff',
 ]
 
 let pushTimer = null

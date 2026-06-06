@@ -2,10 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { off, onDisconnect, onValue, ref, update } from 'firebase/database'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { database, firestore } from '../../lib/firebase.js'
-import { getActiveChapter, getActiveSubject } from '../subjects/subjectsModel.js'
-import { getTargetProgress } from '../goals/goalsModel.js'
-import { computeDailySummary, computeStreak } from '../reports/reportsModel.js'
-import { yesterdayStr } from '../../lib/dates.js'
+import { toPlanPayload } from '../plan/planSync.js'
 import { loadStoredPairing, saveStoredPairing, clearStoredPairing } from '../../lib/storage.js'
 import * as api from './partnerApi.js'
 
@@ -41,20 +38,11 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     const partnerRef = ref(database, `rooms/${code}/${partnerSlot}`)
     partnerRefs.current = { ...partnerRefs.current, myRef, partnerRef, mySlot, roomCode: code }
     onDisconnect(myRef).update({ online: false })
-    const subj = getActiveSubject(appState)
-    const ch = getActiveChapter(appState)
     update(myRef, {
       uid: currentUser?.uid || null,
       name: myName || currentUser?.username || currentUser?.email || 'Partner',
       online: true,
-      mode: appState.mode,
-      timeLeft: appState.timeLeft,
-      totalTime: appState.totalTime,
-      chapter: subj ? (ch ? `${subj.name} -> ${ch.name}` : subj.name) : '',
-      chapterPages: ch?.pages || subj?.pages || '',
-      sessions: appState.sessions,
-      studyMin: appState.studyMin,
-      streak: computeStreak(appState),
+      plan: toPlanPayload(appState.dailyPlan),
       joinedAt: Date.now(),
     }).catch((err) => console.error('[Room] initial write failed', err))
     partnerRefs.current.lastPush = Date.now()
@@ -365,32 +353,14 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     const refs = partnerRefs.current
     if (!refs.myRef) return
     const now = Date.now()
-    const modeChanged = refs.lastMode !== appState.mode
-    if (!force && !modeChanged && now - refs.lastPush < pushThrottleMs) return
+    const planSig = JSON.stringify([appState.dailyPlan?.activeItemId, appState.dailyPlan?.items?.map((i) => i.status)])
+    const changed = refs.lastPlanSig !== planSig
+    if (!force && !changed && now - refs.lastPush < pushThrottleMs) return
     refs.lastPush = now
-    refs.lastMode = appState.mode
-    const progress = getTargetProgress(appState, appState.activeTarget)
-    const subj = getActiveSubject(appState)
-    const ch = getActiveChapter(appState)
+    refs.lastPlanSig = planSig
     update(refs.myRef, {
       name: pair.myName || currentUser?.username || currentUser?.email || 'Partner',
-      mode: appState.mode,
-      timeLeft: appState.timeLeft,
-      totalTime: appState.totalTime,
-      chapter: subj ? (ch ? `${subj.name} -> ${ch.name}` : subj.name) : '',
-      chapterPages: ch?.pages || subj?.pages || '',
-      sessions: appState.sessions,
-      studyMin: appState.studyMin,
-      goalUnit: appState.activeTarget?.unit || null,
-      goalValue: appState.activeTarget?.goal || null,
-      goalType: appState.activeTarget?.type || null,
-      goalEndDate: appState.activeTarget?.endDate || null,
-      goalProgress: progress.value || 0,
-      goalPct: progress.pct || 0,
-      goalDone: !!progress.done,
-      streak: computeStreak(appState),
-      yesterdayMin: computeDailySummary(appState, yesterdayStr()).totalMin,
-      yesterdayAchieved: !!computeDailySummary(appState, yesterdayStr()).achieved,
+      plan: toPlanPayload(appState.dailyPlan),
       online: true,
       updatedAt: now,
     }).catch(() => {})
@@ -401,7 +371,7 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     if (!pair.connected || !partnerRefs.current.myRef) return
     pushMyState()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appState.mode, appState.timeLeft, appState.sessions, appState.studyMin, appState.activeTarget, pair.connected])
+  }, [appState.dailyPlan, pair.connected])
 
   useEffect(() => {
     const stored = loadStoredPairing()
