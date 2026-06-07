@@ -3,7 +3,7 @@ import { PlanItemCard } from '../features/plan/PlanItemCard.jsx'
 import { PlanBuilder } from '../features/plan/PlanBuilder.jsx'
 import { DurationControl } from '../features/plan/DurationControl.jsx'
 import { liveElapsedSec, itemRemainingSec } from '../features/plan/planModel.js'
-import { formatRemaining } from '../lib/format.js'
+import { formatRemaining, formatStudyMinutes } from '../lib/format.js'
 import { fromPlanPayload } from '../features/plan/planSync.js'
 import { DescEditor } from '../features/plan/DescEditor.jsx'
 
@@ -48,17 +48,23 @@ export function TimerPage({ appState, room, onStartItem, onPause, onDone, onEndD
 function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, onAddSubject, onRemoveItem }) {
   const active = plan.items.find((i) => i.id === plan.activeItemId)
   const [addOpen, setAddOpen] = useState(false)
-  const [addForm, setAddForm] = useState({ subjectId: subjects[0]?.id || '', minutes: 30, desc: '' })
+
+  function firstAvailableId() {
+    return subjects.find((s) => !plan.items.some((i) => i.subjectId === s.id))?.id || ''
+  }
+
+  const [addForm, setAddForm] = useState({ subjectId: firstAvailableId(), minutes: 30, desc: '' })
+
+  function openAdd() {
+    setAddForm({ subjectId: firstAvailableId(), minutes: 30, desc: '' })
+    setAddOpen(true)
+  }
 
   function submitAdd() {
-    if (plan.items.some((i) => i.subjectId === addForm.subjectId)) {
-      setAddOpen(false)
-      return
-    }
     const subj = subjects.find((s) => s.id === addForm.subjectId)
-    onAddSubject({ subjectId: addForm.subjectId, subjectName: subj?.name || 'Subject', desc: addForm.desc, targetSec: addForm.minutes * 60 })
+    if (!subj) { setAddOpen(false); return }
+    onAddSubject({ subjectId: addForm.subjectId, subjectName: subj.name, desc: addForm.desc, targetSec: addForm.minutes * 60 })
     setAddOpen(false)
-    setAddForm({ subjectId: subjects[0]?.id || '', minutes: 30, desc: '' })
   }
 
   return (
@@ -70,7 +76,7 @@ function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, o
             {formatRemaining(itemRemainingSec(active, now))}
           </span>
           <span className="text-[10px] text-stone-400 mt-1">
-            {Math.floor(liveElapsedSec(active, now) / 60)}m / {Math.floor(active.targetSec / 60)}m
+            {formatStudyMinutes(Math.floor(liveElapsedSec(active, now) / 60))} / {formatStudyMinutes(Math.floor(active.targetSec / 60))}
           </span>
           <div className="flex gap-2 mt-4 w-full max-w-xs">
             <button onClick={onPause} className="flex-1 py-3 rounded-xl bg-stone-900 text-white text-sm font-semibold">Pause &amp; log</button>
@@ -101,8 +107,8 @@ function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, o
           </div>
         </div>
       ) : (
-        subjects.length > 0 && (
-          <button onClick={() => setAddOpen(true)}
+        subjects.length > 0 && subjects.some((s) => !plan.items.some((i) => i.subjectId === s.id)) && (
+          <button onClick={openAdd}
             className="w-full py-2.5 rounded-xl border border-dashed border-stone-300 text-stone-400 text-sm font-semibold hover:bg-stone-50">
             + Add subject
           </button>

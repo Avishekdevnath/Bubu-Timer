@@ -373,6 +373,13 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     api.setTyping(pair.roomCode, pair.mySlot, false).catch(() => {})
   }
 
+  /* ── Push updated name to room (call after profile save) ── */
+  function pushMyName(name) {
+    const refs = partnerRefs.current
+    if (!refs.myRef) return
+    update(refs.myRef, { name: name || currentUser?.username || currentUser?.email || 'Partner' }).catch(() => {})
+  }
+
   /* ── Read receipts ── */
   function markRead() {
     if (!pair.roomCode || !pair.mySlot) return
@@ -390,7 +397,7 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     refs.lastPush = now
     refs.lastPlanSig = planSig
     update(refs.myRef, {
-      name: pair.myName || currentUser?.username || currentUser?.email || 'Partner',
+      name: currentUser?.username || currentUser?.email || 'Partner',
       plan: toPlanPayload(appState.dailyPlan),
       online: true,
       updatedAt: now,
@@ -461,7 +468,7 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     deleteForMe: deleteForMeFn, deleteForEveryone: deleteForEveryoneFn,
     editMessage: editMessageFn, copyText, saveNickname: saveNicknameFn,
     togglePin: togglePinFn, toggleStar: toggleStarFn,
-    notifyTyping, stopTyping, markRead,
+    notifyTyping, stopTyping, markRead, pushMyName,
     createChecklist, updateChecklist, deleteChecklist,
     addItem, updateItem, deleteItem, toggleItem, toggleArchive,
   }

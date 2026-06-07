@@ -1,4 +1,4 @@
-import { ChartNoAxesColumnIncreasing, ChevronRight, FileText, User } from 'lucide-react'
+import { CalendarDays, ChartNoAxesColumnIncreasing, ChevronRight, FileText, User } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../lib/firebase.js'
@@ -48,13 +48,27 @@ export function SettingsPage({
               <ChevronRight size={16} className="text-stone-300" />
             </button>
             <button onClick={() => navigate('/log')}
-              className="w-full flex items-center gap-3 p-4 hover:bg-stone-50 transition-colors text-left">
+              className="w-full flex items-center gap-3 p-4 hover:bg-stone-50 transition-colors text-left border-b border-stone-50">
               <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center text-stone-600"><FileText size={16} /></div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-stone-800">Activity Log</p>
                 <p className="text-xs text-stone-400">Recent sessions & events</p>
               </div>
               <ChevronRight size={16} className="text-stone-300" />
+            </button>
+            <button onClick={() => navigate('/plan-log')}
+              className="w-full flex items-center gap-3 p-4 hover:bg-stone-50 transition-colors text-left">
+              <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center text-stone-600"><CalendarDays size={16} /></div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-stone-800">Plan History</p>
+                <p className="text-xs text-stone-400">Daily plans, progress & results</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {(appState.planHistory || []).length > 0 && (
+                  <span className="text-xs font-semibold text-stone-400">{(appState.planHistory || []).length}d</span>
+                )}
+                <ChevronRight size={16} className="text-stone-300" />
+              </div>
             </button>
           </div>
         </section>
@@ -156,12 +170,19 @@ export function SettingsPage({
               { label: 'Subjects today', value: items.length },
               { label: 'Done', value: doneCount },
               { label: 'Studied', value: `${studiedMin}m` },
-              { label: 'Past days', value: (appState.planHistory || []).length },
+              { label: 'Past days', value: (appState.planHistory || []).length, link: '/plan-log' },
             ].map((s) => (
-              <div key={s.label} className="bg-white border border-stone-100 rounded-2xl p-4 flex flex-col items-center shadow-sm">
-                <span className="text-xl font-semibold text-stone-800">{s.value}</span>
-                <span className="text-[10px] font-bold tracking-wider text-stone-400 mt-1">{s.label}</span>
-              </div>
+              s.link ? (
+                <button key={s.label} onClick={() => navigate(s.link)} className="bg-white border border-stone-100 rounded-2xl p-4 flex flex-col items-center shadow-sm hover:bg-stone-50 transition-colors">
+                  <span className="text-xl font-semibold text-stone-800">{s.value}</span>
+                  <span className="text-[10px] font-bold tracking-wider text-stone-400 mt-1">{s.label}</span>
+                </button>
+              ) : (
+                <div key={s.label} className="bg-white border border-stone-100 rounded-2xl p-4 flex flex-col items-center shadow-sm">
+                  <span className="text-xl font-semibold text-stone-800">{s.value}</span>
+                  <span className="text-[10px] font-bold tracking-wider text-stone-400 mt-1">{s.label}</span>
+                </div>
+              )
             ))}
           </div>
         </section>

@@ -37,6 +37,7 @@ const SubjectsPage       = lazy(() => import('./pages/SubjectsPage.jsx').then(m 
 const PinnedPage         = lazy(() => import('./pages/PinnedPage.jsx').then(m => ({ default: m.PinnedPage })))
 const StarredPage        = lazy(() => import('./pages/StarredPage.jsx').then(m => ({ default: m.StarredPage })))
 const ChecklistsPage     = lazy(() => import('./pages/ChecklistsPage.jsx').then(m => ({ default: m.ChecklistsPage })))
+const PlanHistoryPage    = lazy(() => import('./pages/PlanHistoryPage.jsx').then(m => ({ default: m.PlanHistoryPage })))
 import { SubjectModal } from './features/subjects/SubjectModal.jsx'
 import { ReportModal } from './features/reports/ReportModal.jsx'
 import { ConfirmReset } from './components/ConfirmReset.jsx'
@@ -433,11 +434,13 @@ function App() {
     if (!profileForm.username.trim()) return showToast('Please enter your name', 'bank-t')
     if (currentUser?.isGuest) {
       setCurrentUser((user) => ({ ...user, username: profileForm.username, partnerName: profileForm.partnerName }))
+      room.pushMyName(profileForm.username.trim())
       return showToast('Profile updated locally', 'study-t')
     }
     if (!currentUser) return showToast('Please log in first', 'bank-t')
     await updateDoc(doc(firestore, 'users', currentUser.uid), { ...profileForm, updatedAt: new Date() })
     setCurrentUser((user) => ({ ...user, ...profileForm }))
+    room.pushMyName(profileForm.username.trim())
     showToast('Profile updated', 'study-t')
   }
 
@@ -534,6 +537,7 @@ function App() {
             />} />
             <Route path="/partner-settings" element={<PartnerSettingsPage room={room} showToast={showToast} />} />
             <Route path="/log" element={<LogPage appState={appState} patchState={patchState} />} />
+            <Route path="/plan-log" element={<PlanHistoryPage appState={appState} />} />
             <Route path="/reports" element={<ReportsPage appState={appState} />} />
             <Route path="/buddy" element={<PartnerPage room={room} currentUser={currentUser} showToast={showToast} navigate={navigate} />} />
             <Route path="/buddy/pins" element={<PinnedPage room={room} navigate={navigate} />} />

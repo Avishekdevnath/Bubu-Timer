@@ -1,5 +1,5 @@
 import { liveElapsedSec, itemRemainingSec } from './planModel.js'
-import { formatRemaining } from '../../lib/format.js'
+import { formatRemaining, formatStudyMinutes } from '../../lib/format.js'
 
 function DescLines({ desc }) {
   const lines = desc.split('\n').filter(Boolean)
@@ -52,7 +52,7 @@ export function PlanItemCard({ item, now, onClick, readOnly, onRemove }) {
             <div className={`h-full rounded-full ${isDone ? 'bg-stone-400' : over ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }} />
           </div>
           <div className="flex justify-between text-xs">
-            <span className="text-stone-400">{Math.floor(elapsed / 60)}m / {Math.floor(item.targetSec / 60)}m</span>
+            <span className="text-stone-400">{formatStudyMinutes(Math.floor(elapsed / 60))} / {formatStudyMinutes(Math.floor(item.targetSec / 60))}</span>
             <span className={`tabular-nums font-semibold ${isDone ? 'text-stone-400' : over ? 'text-amber-600' : 'text-stone-700'}`}>{formatRemaining(remaining)}</span>
           </div>
           {item.logs?.length > 0 && (
