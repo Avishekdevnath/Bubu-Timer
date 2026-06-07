@@ -3,8 +3,7 @@ import { CalendarDays } from 'lucide-react'
 import { PlanItemCard } from '../features/plan/PlanItemCard.jsx'
 import { PlanBuilder } from '../features/plan/PlanBuilder.jsx'
 import { DurationControl } from '../features/plan/DurationControl.jsx'
-import { liveElapsedSec, itemRemainingSec } from '../features/plan/planModel.js'
-import { formatRemaining, formatStudyMinutes } from '../lib/format.js'
+import { formatStudyMinutes } from '../lib/format.js'
 import { fromPlanPayload } from '../features/plan/planSync.js'
 import { DescEditor } from '../features/plan/DescEditor.jsx'
 import { todayStr } from '../lib/dates.js'
@@ -129,7 +128,6 @@ export function TimerPage({
 /* ── Today: active plan ─────────────────────────────────────────────────── */
 
 function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, onAddSubject, onRemoveItem }) {
-  const active = plan.items.find((i) => i.id === plan.activeItemId)
   const [addOpen, setAddOpen] = useState(false)
 
   function firstAvailableId() {
@@ -152,24 +150,15 @@ function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, o
 
   return (
     <div className="space-y-3">
-      {active ? (
-        <div className="bg-white border border-emerald-200 rounded-3xl p-6 shadow-sm flex flex-col items-center">
-          <span className="text-xs font-bold tracking-widest text-stone-400 uppercase mb-1">{active.subjectName}</span>
-          <span className={`text-5xl font-light tabular-nums ${itemRemainingSec(active, now) < 0 ? 'text-amber-600' : 'text-stone-800'}`}>
-            {formatRemaining(itemRemainingSec(active, now))}
-          </span>
-          <span className="text-[10px] text-stone-400 mt-1">
-            {formatStudyMinutes(Math.floor(liveElapsedSec(active, now) / 60))} / {formatStudyMinutes(Math.floor(active.targetSec / 60))}
-          </span>
-          <div className="flex gap-2 mt-4 w-full max-w-xs">
-            <button onClick={onPause} className="flex-1 py-3 rounded-xl bg-stone-900 text-white text-sm font-semibold">Pause &amp; log</button>
-            <button onClick={onDone} className="flex-1 py-3 rounded-xl border border-stone-200 text-stone-600 text-sm font-semibold">Mark done</button>
-          </div>
-        </div>
-      ) : null}
-
       {plan.items.map((it) => (
-        <PlanItemCard key={it.id} item={it} now={now} onClick={() => onStartItem(it.id)} onRemove={onRemoveItem} />
+        <PlanItemCard
+          key={it.id} item={it} now={now}
+          onStart={() => onStartItem(it.id)}
+          onPause={onPause}
+          onDone={onDone}
+          onRemove={onRemoveItem}
+          activeItemId={plan.activeItemId}
+        />
       ))}
 
       {addOpen ? (
