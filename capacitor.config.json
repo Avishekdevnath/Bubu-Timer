@@ -1,5 +1,15 @@
 {
-  "appId": "com.bubustimer.app",
+  "appId": "com.bubu.bubutimer",
   "appName": "Bubu Timer",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_launcher_foreground",
+      "iconColor": "#1c1917",
+      "sound": "beep.wav"
+    }
+  }
 }

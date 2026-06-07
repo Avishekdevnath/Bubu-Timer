@@ -51,7 +51,7 @@ function DateBadge({ selected, today, onChange }) {
 
 export function TimerPage({
   appState, room,
-  onStartItem, onPause, onDone, onEndDay, onCreatePlan, onAddSubject, onRemoveItem,
+  onStartItem, onPause, onDone, onEndDay, onCreatePlan, onAddSubject, onRemoveItem, onEditItem,
   onSaveFuturePlan, onDeleteFuturePlan,
   navigate,
 }) {
@@ -103,7 +103,7 @@ export function TimerPage({
             ) : (
               <MyPlan plan={plan} now={now} subjects={appState.subjects}
                 onStartItem={onStartItem} onPause={onPause} onDone={onDone} onEndDay={onEndDay}
-                onAddSubject={onAddSubject} onRemoveItem={onRemoveItem} />
+                onAddSubject={onAddSubject} onRemoveItem={onRemoveItem} onEditItem={onEditItem} />
             )
           ) : (
             <PartnerPlan plan={partnerPlan} now={now} connected={!!room?.pair?.connected}
@@ -127,7 +127,7 @@ export function TimerPage({
 
 /* ── Today: active plan ─────────────────────────────────────────────────── */
 
-function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, onAddSubject, onRemoveItem }) {
+function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, onAddSubject, onRemoveItem, onEditItem }) {
   const [addOpen, setAddOpen] = useState(false)
 
   function firstAvailableId() {
@@ -157,6 +157,7 @@ function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, o
           onPause={onPause}
           onDone={onDone}
           onRemove={onRemoveItem}
+          onEdit={onEditItem}
           activeItemId={plan.activeItemId}
         />
       ))}

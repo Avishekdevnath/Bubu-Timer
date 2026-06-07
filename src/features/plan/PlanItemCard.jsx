@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { liveElapsedSec, itemRemainingSec } from './planModel.js'
 import { formatRemaining, formatStudyMinutes } from '../../lib/format.js'
+import { DurationControl } from './DurationControl.jsx'
+import { DescEditor } from './DescEditor.jsx'
 
 function DescLines({ desc }) {
   const lines = desc.split('\n').filter(Boolean)
@@ -27,8 +29,12 @@ const STATUS = {
   done:    { label: 'Done',    cls: 'bg-stone-800 text-white' },
 }
 
-export function PlanItemCard({ item, now, onStart, onPause, onDone, readOnly, onRemove, activeItemId }) {
+export function PlanItemCard({ item, now, onStart, onPause, onDone, onEdit, readOnly, onRemove, activeItemId }) {
   const [expanded, setExpanded] = useState(false)
+  const [editing, setEditing]   = useState(false)
+  const [editMinutes, setEditMinutes] = useState(Math.round((item.targetSec || 1800) / 60))
+  const [editDesc, setEditDesc]       = useState(item.desc || '')
+
   const elapsed   = liveElapsedSec(item, now)
   const remaining = itemRemainingSec(item, now)
   const pct       = Math.min(100, item.targetSec ? (elapsed / item.targetSec) * 100 : 0)
@@ -37,8 +43,54 @@ export function PlanItemCard({ item, now, onStart, onPause, onDone, readOnly, on
   const isRunning = item.status === 'running'
   const isPaused  = item.status === 'paused'
   const otherRunning = !!(activeItemId && activeItemId !== item.id)
+  const canEdit   = !readOnly && !isRunning && !isDone && !!onEdit
   const st        = STATUS[item.status] || STATUS.idle
 
+  function openEdit(e) {
+    e.stopPropagation()
+    setEditMinutes(Math.round((item.targetSec || 1800) / 60))
+    setEditDesc(item.desc || '')
+    setEditing(true)
+    setExpanded(false)
+  }
+
+  function saveEdit() {
+    onEdit({ id: item.id, targetSec: editMinutes * 60, desc: editDesc })
+    setEditing(false)
+  }
+
+  // ── Edit form ─────────────────────────────────────────────────────────────
+  if (editing) {
+    return (
+      <div className="w-full bg-white border border-stone-200 rounded-2xl shadow-sm p-4 space-y-3">
+        <p className="text-xs font-bold text-stone-500 uppercase tracking-wider">{item.subjectName}</p>
+        <DescEditor
+          value={editDesc}
+          onChange={setEditDesc}
+          placeholder="What to study (e.g. Ch.15 p.396-435)"
+        />
+        <DurationControl
+          label="Time"
+          value={editMinutes}
+          min={5} max={720} step={5}
+          chips={[15, 30, 45, 60, 90, 120, 180]}
+          onCommit={setEditMinutes}
+        />
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={() => setEditing(false)}
+            className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-500 text-xs font-semibold"
+          >Cancel</button>
+          <button
+            onClick={saveEdit}
+            className="flex-1 py-2.5 rounded-xl bg-stone-900 text-white text-xs font-semibold"
+          >Save</button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Normal card ───────────────────────────────────────────────────────────
   return (
     <div className={`w-full bg-white border rounded-2xl shadow-sm transition-all ${isRunning ? 'border-emerald-300' : 'border-stone-100'} ${isDone ? 'opacity-60' : ''}`}>
 
@@ -53,6 +105,13 @@ export function PlanItemCard({ item, now, onStart, onPause, onDone, readOnly, on
           </span>
           <div className="flex items-center gap-2">
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.cls}`}>{st.label}</span>
+            {canEdit && (
+              <button
+                onClick={openEdit}
+                className="w-5 h-5 flex items-center justify-center text-stone-300 hover:text-stone-600 text-xs"
+                title="Edit"
+              >✎</button>
+            )}
             {!readOnly && !isRunning && onRemove && (
               <button
                 onClick={(e) => { e.stopPropagation(); onRemove(item.id) }}
@@ -62,7 +121,7 @@ export function PlanItemCard({ item, now, onStart, onPause, onDone, readOnly, on
           </div>
         </div>
 
-        {/* Collapsed: show first line of desc truncated + log count hint */}
+        {/* Collapsed: first desc line + log hint */}
         {!expanded && (
           <>
             {item.desc ? (
@@ -126,16 +185,10 @@ export function PlanItemCard({ item, now, onStart, onPause, onDone, readOnly, on
         <div className="px-4 pb-3 pt-1 flex gap-2">
           {isRunning ? (
             <>
-              <button
-                onClick={onPause}
-                className="flex-1 py-2.5 rounded-xl bg-stone-900 text-white text-xs font-semibold"
-              >
+              <button onClick={onPause} className="flex-1 py-2.5 rounded-xl bg-stone-900 text-white text-xs font-semibold">
                 Pause &amp; Log
               </button>
-              <button
-                onClick={onDone}
-                className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-600 text-xs font-semibold"
-              >
+              <button onClick={onDone} className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-600 text-xs font-semibold">
                 Mark Done
               </button>
             </>
@@ -144,10 +197,8 @@ export function PlanItemCard({ item, now, onStart, onPause, onDone, readOnly, on
               onClick={onStart}
               disabled={otherRunning}
               className={`flex-1 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
-                otherRunning
-                  ? 'bg-stone-100 text-stone-400 cursor-not-allowed'
-                  : isPaused
-                  ? 'bg-amber-500 text-white'
+                otherRunning ? 'bg-stone-100 text-stone-400 cursor-not-allowed'
+                  : isPaused ? 'bg-amber-500 text-white'
                   : 'bg-emerald-600 text-white'
               }`}
             >

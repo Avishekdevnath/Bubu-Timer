@@ -76,42 +76,70 @@ export async function subscribeForegroundMessages(handler) {
   return onMessage(messaging, handler)
 }
 
+let _webTimerTimeout = null
+
 /**
- * Schedule a local notification for when a study timer expires.
- * Native only — no-op in browser.
+ * Schedule a notification for when a study timer expires.
+ * Native: Capacitor LocalNotifications (survives app close).
+ * PWA: setTimeout + service worker notification (works while tab open/backgrounded).
  */
 export async function scheduleTimerDoneNotification(itemName, remainingSec) {
-  if (!isNative() || remainingSec <= 0) return
-  try {
-    const { LocalNotifications } = await import('@capacitor/local-notifications')
-    // Cancel any previous timer notification first
-    await LocalNotifications.cancel({ notifications: [{ id: 9001 }] }).catch(() => {})
-    await LocalNotifications.schedule({
-      notifications: [{
-        id: 9001,
-        title: '⏰ Time\'s up!',
-        body: `${itemName} session complete`,
-        schedule: { at: new Date(Date.now() + remainingSec * 1000), allowWhileIdle: true },
-        sound: null,
-        smallIcon: 'ic_launcher_foreground',
-        ongoing: false,
-      }],
-    })
-  } catch (err) {
-    console.warn('[LocalNotif] schedule failed', err)
+  if (remainingSec <= 0) return
+  if (isNative()) {
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications')
+      await LocalNotifications.cancel({ notifications: [{ id: 9001 }] }).catch(() => {})
+      await LocalNotifications.schedule({
+        notifications: [{
+          id: 9001,
+          title: '⏰ Time\'s up!',
+          body: `${itemName} session complete`,
+          schedule: { at: new Date(Date.now() + remainingSec * 1000), allowWhileIdle: true },
+          sound: null,
+          smallIcon: 'ic_launcher_foreground',
+          ongoing: false,
+        }],
+      })
+    } catch (err) {
+      console.warn('[LocalNotif] schedule failed', err)
+    }
+    return
   }
+  // PWA path
+  clearTimeout(_webTimerTimeout)
+  _webTimerTimeout = setTimeout(async () => {
+    _webTimerTimeout = null
+    try { navigator.vibrate?.([400, 200, 400, 200, 400]) } catch {}
+    if (Notification.permission !== 'granted') return
+    try {
+      const reg = await navigator.serviceWorker.ready
+      await reg.showNotification('⏰ Time\'s up!', {
+        body: `${itemName} session complete`,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: 'bubu-timer',
+        vibrate: [400, 200, 400, 200, 400],
+        requireInteraction: true,
+      })
+    } catch {
+      new Notification('⏰ Time\'s up!', { body: `${itemName} session complete`, icon: '/icon-192.png' })
+    }
+  }, remainingSec * 1000)
 }
 
 /**
  * Cancel the pending timer notification (when paused or marked done).
- * Native only — no-op in browser.
  */
 export async function cancelTimerNotification() {
-  if (!isNative()) return
-  try {
-    const { LocalNotifications } = await import('@capacitor/local-notifications')
-    await LocalNotifications.cancel({ notifications: [{ id: 9001 }] })
-  } catch { /* ignore */ }
+  if (isNative()) {
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications')
+      await LocalNotifications.cancel({ notifications: [{ id: 9001 }] })
+    } catch { /* ignore */ }
+    return
+  }
+  clearTimeout(_webTimerTimeout)
+  _webTimerTimeout = null
 }
 
 /**

@@ -126,6 +126,21 @@ export function endDay(state, { endNote, now }) {
   return archive(state, state.dailyPlan, { endNote: endNote || null, now })
 }
 
+export function updateItemInPlan(state, { id, targetSec, desc }) {
+  if (!state.dailyPlan) return state
+  return {
+    ...state,
+    dailyPlan: {
+      ...state.dailyPlan,
+      items: state.dailyPlan.items.map((it) =>
+        it.id === id
+          ? { ...it, targetSec: Math.max(60, targetSec ?? it.targetSec), desc: desc ?? it.desc }
+          : it
+      ),
+    },
+  }
+}
+
 export function saveFuturePlan(state, { date, items }) {
   return {
     ...state,

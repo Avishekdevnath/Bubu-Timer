@@ -12,6 +12,8 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
 } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { auth, firestore } from './lib/firebase.js'
@@ -19,7 +21,7 @@ import { registerPushToken, savePushToken, subscribeForegroundMessages, schedule
 import { todayStr } from './lib/dates.js'
 import { loadStoredState, loadThemeValue, saveStoredState, saveThemeValue } from './lib/storage.js'
 import { flushCloudPushNow, mergeCloudIntoLocal, pullCloudState, queueCloudPush } from './lib/cloudSync.js'
-import { buildPlan, startItem, pauseItem, markItemDone, endDay, autoArchiveIfPastCutoff, addItemToPlan, removeItemFromPlan, saveFuturePlan, deleteFuturePlan } from './features/plan/planModel.js'
+import { buildPlan, startItem, pauseItem, markItemDone, endDay, autoArchiveIfPastCutoff, addItemToPlan, removeItemFromPlan, updateItemInPlan, saveFuturePlan, deleteFuturePlan } from './features/plan/planModel.js'
 import { dhakaNowMinutes } from './lib/dates.js'
 import { ProgressNoteModal } from './components/ProgressNoteModal.jsx'
 import { EndDayModal } from './components/EndDayModal.jsx'
@@ -198,9 +200,13 @@ function App() {
     saveThemeValue(theme)
   }, [theme])
 
+  // Handle Google redirect result on Capacitor (fires once after redirect back)
   useEffect(() => {
-    // Complete Google redirect sign-in if returning from redirect
+    if (!window.Capacitor?.isNativePlatform?.()) return
+    getRedirectResult(auth).catch(() => {})
+  }, [])
 
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         cloudUidRef.current = null
@@ -417,6 +423,10 @@ function App() {
     showToast(`Added: ${item.subjectName}`, 'study-t')
   }
 
+  function handleEditItem({ id, targetSec, desc }) {
+    patchState((s) => updateItemInPlan(s, { id, targetSec, desc }))
+  }
+
   function handleSaveFuturePlan(date, items) {
     patchState((s) => saveFuturePlan(s, { date, items }))
     showToast('Plan saved', 'study-t')
@@ -465,7 +475,13 @@ function App() {
     try {
       const provider = new GoogleAuthProvider()
       provider.setCustomParameters({ prompt: 'select_account' })
-      await signInWithPopup(auth, provider)
+      if (window.Capacitor?.isNativePlatform?.()) {
+        // Capacitor WebView blocks popups — use redirect instead
+        await signInWithRedirect(auth, provider)
+        // page reloads; result handled in onAuthStateChanged + getRedirectResult below
+      } else {
+        await signInWithPopup(auth, provider)
+      }
     } catch (error) {
       if (error?.code === 'auth/popup-closed-by-user') return
       if (error?.code === 'auth/cancelled-popup-request') return
@@ -562,7 +578,7 @@ function App() {
               appState={appState} room={room}
               onStartItem={handleStartItem} onPause={openPauseNote} onDone={openDoneNote}
               onEndDay={() => setEndDayOpen(true)} onCreatePlan={createPlan} onAddSubject={addSubjectToPlan}
-              onRemoveItem={removeFromPlan}
+              onRemoveItem={removeFromPlan} onEditItem={handleEditItem}
               onSaveFuturePlan={handleSaveFuturePlan}
               onDeleteFuturePlan={handleDeleteFuturePlan}
               navigate={navigate}
