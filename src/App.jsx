@@ -53,6 +53,7 @@ const tabs = [
 
 function App() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [appState, setAppState] = useState(() =>
     autoArchiveIfPastCutoff(loadStoredState(), { todayDate: todayStr(), nowMinutes: dhakaNowMinutes(), now: Date.now() }),
   )
@@ -78,6 +79,7 @@ function App() {
   const [profileForm, setProfileForm] = useState({ username: '', partnerName: '' })
   const toastTimer = useRef(null)
   const cloudUidRef = useRef(null)
+  const [keyboardOpen, setKeyboardOpen] = useState(false)
   const [soundOn, setSoundOn] = useState(() => localStorage.getItem('bubu_sound') !== 'off')
   const soundOnRef = useRef(soundOn)
   const [chatSoundOn, setChatSoundOn] = useState(() => localStorage.getItem('bubu_chat_sound') !== 'off')
@@ -279,6 +281,17 @@ function App() {
 
   useEffect(() => { soundOnRef.current = soundOn }, [soundOn])
   useEffect(() => { chatSoundOnRef.current = chatSoundOn }, [chatSoundOn])
+
+  // Detect soft keyboard — used to hide bottom nav on chat page (WhatsApp-style)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    function onResize() {
+      setKeyboardOpen(window.innerHeight - vv.height > 150)
+    }
+    vv.addEventListener('resize', onResize)
+    return () => vv.removeEventListener('resize', onResize)
+  }, [])
 
   // Clock tick sound while studying
   useEffect(() => {
@@ -571,7 +584,7 @@ function App() {
         </header>
 
         {/* Screen content */}
-        <main className={`flex-1 overflow-x-hidden ${useLocation().pathname === '/buddy' ? 'overflow-hidden' : 'overflow-y-auto pb-20 md:pb-6'}`}>
+        <main className={`flex-1 overflow-x-hidden ${location.pathname === '/buddy' ? 'overflow-hidden' : 'overflow-y-auto pb-20 md:pb-6'}`}>
           <ErrorBoundary>
           <Suspense fallback={<div className="flex items-center justify-center h-32"><div className="w-6 h-6 rounded-full border-2 border-stone-300 border-t-stone-700 animate-spin" /></div>}>
           <Routes>
@@ -602,7 +615,7 @@ function App() {
             <Route path="/log" element={<LogPage appState={appState} patchState={patchState} />} />
             <Route path="/plan-log" element={<PlanHistoryPage appState={appState} />} />
             <Route path="/reports" element={<ReportsPage appState={appState} />} />
-            <Route path="/buddy" element={<PartnerPage room={room} currentUser={currentUser} showToast={showToast} navigate={navigate} />} />
+            <Route path="/buddy" element={<PartnerPage room={room} currentUser={currentUser} showToast={showToast} navigate={navigate} keyboardOpen={keyboardOpen} />} />
             <Route path="/buddy/pins" element={<PinnedPage room={room} navigate={navigate} />} />
             <Route path="/buddy/starred" element={<StarredPage room={room} navigate={navigate} />} />
             <Route path="/buddy/checklists" element={<ChecklistsPage room={room} navigate={navigate} />} />
@@ -614,7 +627,7 @@ function App() {
       </div>
 
       {/* ── Mobile bottom nav ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-stone-100 z-20 pb-safe">
+      <nav className={`md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-stone-100 z-20 pb-safe transition-transform duration-150 ${location.pathname === '/buddy' && keyboardOpen ? 'translate-y-full' : ''}`}>
         <div className="flex justify-around items-center px-2 py-3">
           {tabs.map(({ label, path, icon: Icon }) => (
             <NavLink key={path} to={path} end

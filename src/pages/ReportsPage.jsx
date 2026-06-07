@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ChartNoAxesColumnIncreasing } from 'lucide-react'
-import { computeDayReport, computePlanStreak, computeAllTimeSubjects, computeAllTotalMin } from '../features/reports/reportsModel.js'
+import { computeDayReport, computePlanStreak, computeAllTimeSubjects, computeAllTotalMin, computeBestDay, computeWeeklyAvg } from '../features/reports/reportsModel.js'
 import { formatStudyMinutes } from '../lib/format.js'
 import { todayStr, yesterdayStr } from '../lib/dates.js'
 
@@ -15,6 +15,15 @@ export function ReportsPage({ appState }) {
   const streak = computePlanStreak(appState, today)
   const subjectList = computeAllTimeSubjects(appState)
   const totalMin = computeAllTotalMin(appState)
+  const bestDay = computeBestDay(appState)
+  const weeklyAvg = computeWeeklyAvg(appState, today)
+
+  function fmtHM(min) {
+    if (!min) return '0m'
+    const h = Math.floor(min / 60)
+    const m = min % 60
+    return h > 0 ? `${h}h ${m}m` : `${m}m`
+  }
 
   const last7 = []
   for (let i = 6; i >= 0; i -= 1) {
@@ -35,14 +44,15 @@ export function ReportsPage({ appState }) {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: 'Today', value: formatStudyMinutes(reportToday?.totalMin ?? 0) },
-          { label: 'Yesterday', value: formatStudyMinutes(reportYesterday?.totalMin ?? 0) },
-          { label: 'Streak', value: `${streak}d` },
-          { label: 'Past Days', value: (appState.planHistory || []).length },
+          { label: 'Today', value: fmtHM(reportToday?.totalMin ?? 0), sub: reportToday ? `/ ${fmtHM(reportToday.totalTargetMin)}` : null },
+          { label: 'Yesterday', value: fmtHM(reportYesterday?.totalMin ?? 0), sub: reportYesterday ? `/ ${fmtHM(reportYesterday.totalTargetMin)}` : null },
+          { label: 'Streak', value: `${streak}d`, sub: 'days in a row' },
+          { label: 'Best Day', value: fmtHM(bestDay), sub: `avg ${fmtHM(weeklyAvg)}/day` },
         ].map((s) => (
           <div key={s.label} className="bg-white border border-stone-100 rounded-2xl p-4 shadow-sm">
             <p className="text-[9px] font-bold tracking-widest text-stone-400 uppercase">{s.label}</p>
             <p className="text-xl font-semibold text-stone-800 mt-1">{s.value}</p>
+            {s.sub && <p className="text-[10px] text-stone-400 mt-0.5">{s.sub}</p>}
           </div>
         ))}
       </div>
@@ -79,23 +89,29 @@ export function ReportsPage({ appState }) {
           {subjectList.length === 0 ? (
             <div className="p-6 text-center text-sm text-stone-400">No study data yet — complete a daily plan first</div>
           ) : subjectList.map((s) => {
-            const pct = totalMin > 0 ? (s.minutes / totalMin) * 100 : 0
+            const pctOfTotal = totalMin > 0 ? (s.minutes / totalMin) * 100 : 0
+            const pctOfTarget = s.targetMinutes > 0 ? Math.min(100, (s.minutes / s.targetMinutes) * 100) : null
             return (
               <div key={s.name} className="p-4">
                 <div className="flex justify-between items-baseline mb-1.5">
                   <span className="text-sm font-medium text-stone-700 truncate flex-1">{s.name}</span>
-                  <span className="text-xs text-stone-500 font-medium ml-3 shrink-0">{formatStudyMinutes(s.minutes)} · {s.doneCount} done</span>
+                  <span className="text-xs text-stone-500 font-medium ml-3 shrink-0 tabular-nums">
+                    {fmtHM(s.minutes)}{s.targetMinutes > 0 ? ` / ${fmtHM(s.targetMinutes)}` : ''} · {s.doneCount} done
+                  </span>
                 </div>
                 <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-stone-700 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                  <div className="h-full bg-stone-700 rounded-full transition-all" style={{ width: `${pctOfTotal}%` }} />
                 </div>
+                {pctOfTarget !== null && (
+                  <p className="text-[10px] text-stone-400 mt-1">{pctOfTarget}% of target · {s.sessions} session{s.sessions !== 1 ? 's' : ''}</p>
+                )}
               </div>
             )
           })}
         </div>
       </section>
 
-      <DayByDay appState={appState} dayQuery={dayQuery} setDayQuery={setDayQuery} dayFilter={dayFilter} setDayFilter={setDayFilter} today={today} yesterday={yesterday} />
+      <DayByDay appState={appState} dayQuery={dayQuery} setDayQuery={setDayQuery} dayFilter={dayFilter} setDayFilter={setDayFilter} today={today} yesterday={yesterday} fmtHM={fmtHM} />
 
       <section className="mb-6">
         <div className="bg-stone-900 text-white rounded-2xl p-5 shadow-sm flex items-center justify-between">
@@ -110,7 +126,7 @@ export function ReportsPage({ appState }) {
   )
 }
 
-function DayByDay({ appState, dayQuery, setDayQuery, dayFilter, setDayFilter, today, yesterday }) {
+function DayByDay({ appState, dayQuery, setDayQuery, dayFilter, setDayFilter, today, yesterday, fmtHM }) {
   const allDates = new Set([
     ...(appState.planHistory || []).map((p) => p.date),
     today,
@@ -171,15 +187,21 @@ function DayByDay({ appState, dayQuery, setDayQuery, dayFilter, setDayFilter, to
                 <span className="text-sm font-semibold text-stone-800">{r.label}</span>
                 {r.report.isActive && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">In progress</span>}
               </div>
-              <span className="text-xs font-semibold text-stone-700">
-                {formatStudyMinutes(r.report.totalMin)} · {r.report.doneCount}/{r.report.totalCount} done
+              <span className="text-xs font-semibold text-stone-700 tabular-nums">
+                {fmtHM(r.report.totalMin)}{r.report.totalTargetMin > 0 ? ` / ${fmtHM(r.report.totalTargetMin)}` : ''} · {r.report.doneCount}/{r.report.totalCount} done
               </span>
             </div>
+            {r.report.pctAchieved !== null && (
+              <div className="h-1 bg-stone-100 rounded-full overflow-hidden mb-2">
+                <div className={`h-full rounded-full ${r.report.pctAchieved >= 100 ? 'bg-emerald-500' : 'bg-stone-400'}`}
+                  style={{ width: `${r.report.pctAchieved}%` }} />
+              </div>
+            )}
             {r.report.subjects.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
+              <div className="flex flex-wrap gap-1.5 mt-1">
                 {r.report.subjects.map((s, i) => (
                   <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full border ${s.status === 'done' ? 'bg-stone-800 text-white border-stone-800' : 'bg-stone-50 border-stone-100 text-stone-600'}`}>
-                    {s.name} <span className="opacity-60 ml-1">{formatStudyMinutes(s.min)}</span>
+                    {s.name} <span className="opacity-60 ml-1">{fmtHM(s.min)}{s.targetMin > 0 ? `/${fmtHM(s.targetMin)}` : ''}</span>
                   </span>
                 ))}
               </div>

@@ -61,21 +61,33 @@ export function computeStreak(state, now = new Date()) {
 
 // ── v2 plan-based reports ──────────────────────────────────────────────────
 
+function localDateStr(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export function computeDayReport(state, date) {
   const active = state.dailyPlan?.date === date ? state.dailyPlan : null
   const archived = (state.planHistory || []).find((p) => p.date === date)
   const plan = active || archived
   if (!plan) return null
   const totalSec = plan.items.reduce((s, it) => s + (it.elapsedSec || 0), 0)
+  const totalTargetSec = plan.items.reduce((s, it) => s + (it.targetSec || 0), 0)
   return {
     date,
     totalMin: Math.floor(totalSec / 60),
+    totalTargetMin: Math.floor(totalTargetSec / 60),
+    pctAchieved: totalTargetSec > 0 ? Math.min(100, Math.round((totalSec / totalTargetSec) * 100)) : null,
     doneCount: plan.items.filter((i) => i.status === 'done').length,
     totalCount: plan.items.length,
     subjects: plan.items.map((i) => ({
       name: i.subjectName,
       min: Math.floor((i.elapsedSec || 0) / 60),
+      targetMin: Math.floor((i.targetSec || 0) / 60),
       status: i.status,
+      logs: i.logs || [],
     })),
     endNote: plan.endNote || null,
     isActive: !!active,
@@ -92,8 +104,7 @@ export function computePlanStreak(state, todayDate) {
   const d = new Date(`${todayDate}T00:00:00`)
   for (let i = 0; i < 365; i += 1) {
     d.setDate(d.getDate() - 1)
-    const key = d.toISOString().slice(0, 10)
-    if (byDate.has(key)) streak += 1
+    if (byDate.has(localDateStr(d))) streak += 1
     else break
   }
   return streak
@@ -105,8 +116,10 @@ export function computeAllTimeSubjects(state) {
   allPlans.forEach((plan) => {
     plan.items.forEach((it) => {
       const key = it.subjectName || '(unknown)'
-      if (!totals[key]) totals[key] = { name: key, minutes: 0, doneCount: 0 }
+      if (!totals[key]) totals[key] = { name: key, minutes: 0, targetMinutes: 0, doneCount: 0, sessions: 0 }
       totals[key].minutes += Math.floor((it.elapsedSec || 0) / 60)
+      totals[key].targetMinutes += Math.floor((it.targetSec || 0) / 60)
+      totals[key].sessions += 1
       if (it.status === 'done') totals[key].doneCount += 1
     })
   })
@@ -116,4 +129,21 @@ export function computeAllTimeSubjects(state) {
 export function computeAllTotalMin(state) {
   const allPlans = [...(state.planHistory || []), state.dailyPlan].filter(Boolean)
   return Math.floor(allPlans.reduce((sum, p) => sum + p.items.reduce((s, it) => s + (it.elapsedSec || 0), 0), 0) / 60)
+}
+
+export function computeBestDay(state) {
+  const plans = (state.planHistory || [])
+  if (!plans.length) return 0
+  return Math.max(...plans.map((p) => Math.floor(p.items.reduce((s, it) => s + (it.elapsedSec || 0), 0) / 60)))
+}
+
+export function computeWeeklyAvg(state, todayDate) {
+  const d = new Date(`${todayDate}T00:00:00`)
+  const cutoff = new Date(d)
+  cutoff.setDate(cutoff.getDate() - 7)
+  const cutoffStr = localDateStr(cutoff)
+  const recent = (state.planHistory || []).filter((p) => p.date > cutoffStr && p.date <= todayDate)
+  if (!recent.length) return 0
+  const totalMin = recent.reduce((s, p) => s + Math.floor(p.items.reduce((ss, it) => ss + (it.elapsedSec || 0), 0) / 60), 0)
+  return Math.round(totalMin / 7)
 }

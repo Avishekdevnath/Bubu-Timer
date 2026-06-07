@@ -4,7 +4,7 @@ import { PartnerCard } from '../features/partner/PartnerCard.jsx'
 import { ChatInput } from '../features/partner/ChatInput.jsx'
 import { ChatMessage } from '../features/partner/ChatMessage.jsx'
 
-export function PartnerPage({ room, currentUser, showToast, navigate }) {
+export function PartnerPage({ room, currentUser, showToast, navigate, keyboardOpen }) {
   const {
     pair, chatMessages, setUnreadChat, chatEndRef, notifTimerRef, restoring,
     activeReactionId, setActiveReactionId,
@@ -25,6 +25,7 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [showScrollFab, setShowScrollFab] = useState(false)
   const chatScrollRef = useRef(null)
+  const searchInputRef = useRef(null)
   const myDeletedMsgs = pair.myDeletedMsgs || {}
   const myStarredMsgs = pair.myStarredMsgs || {}
   const pins = pair.pins || {}
@@ -73,6 +74,24 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
     return () => el.removeEventListener('scroll', onScroll)
   }, [pair.connected])
 
+  // Scroll to latest message when keyboard opens/closes (mobile PWA)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    function onResize() {
+      requestAnimationFrame(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }))
+    }
+    vv.addEventListener('resize', onResize)
+    return () => vv.removeEventListener('resize', onResize)
+  }, [chatEndRef])
+
+  // Focus search input after animation (avoids immediate keyboard pop on mobile)
+  useEffect(() => {
+    if (!searchOpen) return
+    const t = setTimeout(() => searchInputRef.current?.focus(), 150)
+    return () => clearTimeout(t)
+  }, [searchOpen])
+
   // Handle jump from Pinned/Starred pages
   useEffect(() => {
     if (jumpToId) {
@@ -86,7 +105,7 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
 
   if (restoring) {
     return (
-      <div className="w-full flex flex-col items-center justify-center h-[calc(100dvh-57px-env(safe-area-inset-bottom,0px)-96px)] md:h-[calc(100dvh-57px-env(safe-area-inset-bottom,0px)-24px)]">
+      <div className={`w-full flex flex-col items-center justify-center md:h-[calc(100dvh-57px-env(safe-area-inset-bottom,0px)-24px)] ${keyboardOpen ? 'h-[calc(100dvh-57px)]' : 'h-[calc(100dvh-57px-env(safe-area-inset-bottom,0px)-96px)]'}`}>
         <div className="relative w-16 h-16 mb-4">
           <div className="absolute inset-0 rounded-full border-2 border-stone-200" />
           <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-stone-800 animate-spin" />
@@ -101,7 +120,7 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
   }
 
   return (
-    <div className="w-full flex flex-col px-4 md:px-6 h-[calc(100dvh-57px-env(safe-area-inset-bottom,0px)-96px)] md:h-[calc(100dvh-57px-env(safe-area-inset-bottom,0px)-24px)]">
+    <div className={`w-full flex flex-col px-4 md:px-6 md:h-[calc(100dvh-57px-env(safe-area-inset-bottom,0px)-24px)] ${keyboardOpen ? 'h-[calc(100dvh-57px)]' : 'h-[calc(100dvh-57px-env(safe-area-inset-bottom,0px)-96px)]'}`}>
       {!pair.connected ? (
         <div className="flex flex-col items-center pt-10 max-w-sm mx-auto w-full">
           <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center text-stone-400 mb-5">
@@ -197,7 +216,7 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
             <div className="flex items-center gap-2 bg-white border border-stone-200 rounded-xl px-3 py-2 mb-2 shadow-sm flex-shrink-0">
               <Search size={14} className="text-stone-400 flex-shrink-0" />
               <input
-                autoFocus
+                ref={searchInputRef}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search messages…"

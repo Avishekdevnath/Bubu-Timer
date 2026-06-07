@@ -160,45 +160,18 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
       </div>
     )}
 
-    {/* File attachment preview */}
+    {/* File attachment preview — disabled while attachment button is hidden
     {selectedFiles.length > 0 && (
       <div className="bg-stone-50 border border-stone-200 rounded-xl p-2.5 mb-2 animate-in slide-in-from-bottom-2 fade-in duration-200">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-semibold text-stone-700">
-            Uploading {selectedFiles.filter(f => f.uploadStatus === 'uploading' || f.uploadStatus === 'pending').length} • 
-            Uploaded {selectedFiles.filter(f => f.uploadStatus === 'uploaded').length} • 
-            Failed {selectedFiles.filter(f => f.uploadStatus === 'error').length}
-          </span>
-          <button
-            type="button"
-            onClick={clearFiles}
-            className="text-stone-400 hover:text-stone-600 text-xs">
-            Clear
-          </button>
-        </div>
-        
-        {/* Thumbnail grid */}
-        <div className="flex flex-wrap gap-2">
-          {selectedFiles.map((file) => (
-            <AttachmentPreview
-              key={file.id}
-              attachment={file}
-              isPreview={true}
-              onDelete={() => removeFile(file.id)}
-            />
-          ))}
-        </div>
-
-        {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
+        ...
       </div>
     )}
-
-    {/* Error message */}
     {error && selectedFiles.length === 0 && (
       <div className="bg-red-50 border border-red-200 rounded-xl p-2.5 mb-2 text-xs text-red-600">
         {error}
       </div>
     )}
+    */}
     
     <form onSubmit={submit} className="flex gap-2 items-end bg-white border border-stone-200 shadow-sm p-2 rounded-2xl mt-1">
       {/* Mic button */}
@@ -231,17 +204,13 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
       />
       <button
         type="submit"
-        disabled={(!val.trim() && !selectedFiles.some(f => f.uploadStatus === 'uploaded')) || isRecording || isUploadingVoice || isUploadingFiles}
+        disabled={!val.trim() || isRecording || isUploadingVoice}
         className="w-9 h-9 bg-stone-900 text-white rounded-xl flex items-center justify-center hover:bg-stone-800 disabled:opacity-40 transition-colors flex-shrink-0"
       >
-        {isUploadingFiles ? (
-          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-        ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-        )}
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
       </button>
 
-      {/* File upload button */}
+      {/* File upload button — commented out for now
       <input
         ref={fileInputRef}
         type="file"
@@ -259,9 +228,10 @@ export function ChatInput({ partnerName, onSend, replyingTo, cancelReply, onTypi
       >
         <Paperclip size={16} />
       </button>
+      */}
     </form>
-    <p className="text-[10px] text-stone-400 mt-1 px-2">
-      <span className="font-semibold">**bold**</span> · <span className="italic">_italic_</span> · <span className="line-through">~~strike~~</span> · <code className="bg-stone-100 px-1 rounded">`code`</code> · Tap send · 🎤 Voice · 📷 Images
+    <p className="hidden md:block text-[10px] text-stone-400 mt-1 px-2">
+      <span className="font-semibold">**bold**</span> · <span className="italic">_italic_</span> · <span className="line-through">~~strike~~</span> · <code className="bg-stone-100 px-1 rounded">`code`</code> · Ctrl+Enter to send · 🎤 Voice · 📷 Images
     </p>
     </div>
   )
