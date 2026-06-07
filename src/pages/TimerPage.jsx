@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { CalendarDays } from 'lucide-react'
 import { PlanItemCard } from '../features/plan/PlanItemCard.jsx'
 import { PlanBuilder } from '../features/plan/PlanBuilder.jsx'
 import { DurationControl } from '../features/plan/DurationControl.jsx'
@@ -12,56 +12,40 @@ import { todayStr } from '../lib/dates.js'
 function offsetDate(dateStr, days) {
   const d = new Date(`${dateStr}T00:00:00`)
   d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
-function formatDateLabel(dateStr, today) {
-  if (dateStr === today) return 'Today'
-  if (dateStr === offsetDate(today, -1)) return 'Yesterday'
-  if (dateStr === offsetDate(today, 1)) return 'Tomorrow'
-  const d = new Date(`${dateStr}T00:00:00`)
-  return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
-}
+function DateBadge({ selected, today, onChange }) {
+  const inputRef = useRef(null)
+  const d = new Date(`${selected}T00:00:00`)
+  const label = d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 
-function DateNav({ selected, today, onChange }) {
-  const isPastLimit = selected <= offsetDate(today, -60)
-  const isFutureLimit = selected >= offsetDate(today, 14)
-  const label = formatDateLabel(selected, today)
-  const isToday = selected === today
+  function open() {
+    if (inputRef.current?.showPicker) inputRef.current.showPicker()
+    else inputRef.current?.click()
+  }
 
   return (
-    <div className="flex items-center justify-between mb-4 bg-white border border-stone-100 rounded-2xl px-3 py-2.5 shadow-sm">
+    <div className="flex justify-end mb-3">
       <button
-        onClick={() => !isPastLimit && onChange(offsetDate(selected, -1))}
-        disabled={isPastLimit}
-        className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-100 disabled:opacity-30 transition-colors"
+        onClick={open}
+        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-full shadow-sm text-xs font-semibold text-stone-600 active:bg-stone-50"
       >
-        <ChevronLeft size={18} className="text-stone-600" />
+        <CalendarDays size={12} className="text-stone-400" />
+        {label}
       </button>
-
-      <div className="flex flex-col items-center gap-0.5">
-        <div className="flex items-center gap-2">
-          <CalendarDays size={13} className="text-stone-400" />
-          <span className="text-sm font-semibold text-stone-800">{label}</span>
-          {isToday && (
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-900 text-white">Today</span>
-          )}
-        </div>
-        <button
-          onClick={() => onChange(today)}
-          className={`text-[10px] text-stone-400 hover:text-stone-600 transition-colors ${isToday ? 'invisible' : ''}`}
-        >
-          Jump to today
-        </button>
-      </div>
-
-      <button
-        onClick={() => !isFutureLimit && onChange(offsetDate(selected, 1))}
-        disabled={isFutureLimit}
-        className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-100 disabled:opacity-30 transition-colors"
-      >
-        <ChevronRight size={18} className="text-stone-600" />
-      </button>
+      <input
+        ref={inputRef}
+        type="date"
+        value={selected}
+        min={offsetDate(today, -60)}
+        max={offsetDate(today, 14)}
+        onChange={(e) => e.target.value && onChange(e.target.value)}
+        className="sr-only"
+      />
     </div>
   )
 }
@@ -95,7 +79,7 @@ export function TimerPage({
 
   return (
     <div className="w-full px-4 md:px-6 pt-4 pb-4">
-      <DateNav selected={selectedDate} today={today} onChange={(d) => { setSelectedDate(d); setBuilding(false) }} />
+      <DateBadge selected={selectedDate} today={today} onChange={(d) => { setSelectedDate(d); setBuilding(false) }} />
 
       {isToday ? (
         <>
