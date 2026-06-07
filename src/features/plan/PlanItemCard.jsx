@@ -62,7 +62,19 @@ export function PlanItemCard({ item, now, onStart, onPause, onDone, readOnly, on
           </div>
         </div>
 
-        {item.desc ? <DescLines desc={item.desc} /> : null}
+        {/* Collapsed: show first line of desc truncated + log count hint */}
+        {!expanded && (
+          <>
+            {item.desc ? (
+              <p className="text-xs text-stone-400 truncate mb-1.5">{item.desc.split('\n')[0].replace(/^• /, '')}</p>
+            ) : null}
+            {item.logs?.length > 0 && (
+              <p className="text-[11px] text-stone-300 mb-1.5">
+                {item.logs.length} session log{item.logs.length > 1 ? 's' : ''} · tap to view
+              </p>
+            )}
+          </>
+        )}
 
         <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden mb-1.5">
           <div
@@ -81,22 +93,31 @@ export function PlanItemCard({ item, now, onStart, onPause, onDone, readOnly, on
         </div>
       </button>
 
-      {/* Logs */}
-      {item.logs?.length > 0 && (
-        <div className="px-4 pb-2 space-y-1">
-          {expanded
-            ? item.logs.map((log, i) => (
-                <p key={i} className="text-[11px] text-stone-400">📝 {log.note}</p>
-              ))
-            : (
-              <p className="text-[11px] text-stone-400 truncate">
-                📝 {item.logs[item.logs.length - 1].note}
-                {item.logs.length > 1 && (
-                  <span className="ml-1 text-stone-300">+{item.logs.length - 1} more</span>
-                )}
-              </p>
-            )
-          }
+      {/* Expanded: full description + all logs */}
+      {expanded && (
+        <div className="px-4 pb-3 space-y-3 border-t border-stone-50 pt-3">
+          {item.desc ? (
+            <div>
+              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1">Target</p>
+              <DescLines desc={item.desc} />
+            </div>
+          ) : null}
+          {item.logs?.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider mb-1">Progress Log</p>
+              <div className="space-y-1.5">
+                {item.logs.map((log, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className="text-[10px] text-stone-300 mt-0.5 flex-shrink-0">#{i + 1}</span>
+                    <p className="text-xs text-stone-500 leading-snug">{log.note}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {!item.desc && !item.logs?.length && (
+            <p className="text-xs text-stone-300 text-center py-1">No details added.</p>
+          )}
         </div>
       )}
 
