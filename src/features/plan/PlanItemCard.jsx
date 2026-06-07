@@ -108,9 +108,8 @@ export function PlanItemCard({ item, now, onStart, onPause, onDone, onEdit, read
             {canEdit && (
               <button
                 onClick={openEdit}
-                className="w-5 h-5 flex items-center justify-center text-stone-300 hover:text-stone-600 text-xs"
-                title="Edit"
-              >✎</button>
+                className="text-[11px] font-semibold text-stone-400 hover:text-stone-700 px-1"
+              >Edit</button>
             )}
             {!readOnly && !isRunning && onRemove && (
               <button

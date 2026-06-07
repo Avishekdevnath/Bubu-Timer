@@ -4,6 +4,7 @@ import { PlanItemCard } from '../features/plan/PlanItemCard.jsx'
 import { PlanBuilder } from '../features/plan/PlanBuilder.jsx'
 import { DurationControl } from '../features/plan/DurationControl.jsx'
 import { formatStudyMinutes } from '../lib/format.js'
+import { liveElapsedSec } from '../features/plan/planModel.js'
 import { fromPlanPayload } from '../features/plan/planSync.js'
 import { DescEditor } from '../features/plan/DescEditor.jsx'
 import { todayStr } from '../lib/dates.js'
@@ -148,8 +149,25 @@ function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, o
     setAddOpen(false)
   }
 
+  const totalElapsedSec = plan.items.reduce((s, it) => s + liveElapsedSec(it, now), 0)
+  const totalTargetSec  = plan.items.reduce((s, it) => s + (it.targetSec || 0), 0)
+
+  function fmtHM(sec) {
+    const m = Math.floor(sec / 60)
+    const h = Math.floor(m / 60)
+    const mm = m % 60
+    return h > 0 ? `${h}h ${mm}m` : `${mm}m`
+  }
+
   return (
     <div className="space-y-3">
+      {/* Summary bar */}
+      <div className="flex items-center justify-center gap-1 bg-white border border-stone-100 rounded-2xl px-4 py-2.5 shadow-sm">
+        <span className="text-base font-bold tabular-nums text-stone-800">{fmtHM(totalElapsedSec)}</span>
+        <span className="text-stone-300 font-light text-sm mx-1">/</span>
+        <span className="text-base font-bold tabular-nums text-stone-400">{fmtHM(totalTargetSec)}</span>
+      </div>
+
       {plan.items.map((it) => (
         <PlanItemCard
           key={it.id} item={it} now={now}

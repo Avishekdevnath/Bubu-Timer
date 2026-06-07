@@ -49,7 +49,7 @@ export function PartnerPage({ room, currentUser, showToast, navigate }) {
   }
 
   useEffect(() => {
-    setUnreadChat(false)
+    setUnreadChat(0)
     clearTimeout(notifTimerRef.current)
     setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 80)
     if (markRead) markRead()

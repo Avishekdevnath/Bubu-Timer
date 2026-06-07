@@ -529,8 +529,10 @@ function App() {
                   <div className="flex items-center gap-3">
                     <Icon size={18} strokeWidth={isActive ? 2.5 : 1.5} />{label}
                   </div>
-                  {path === '/buddy' && room.unreadChat && !isActive && (
-                    <span className="w-2 h-2 bg-red-500 rounded-full" />
+                  {path === '/buddy' && room.unreadChat > 0 && !isActive && (
+                    <span className="min-w-[18px] h-[18px] bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center px-1">
+                      {room.unreadChat > 99 ? '99+' : room.unreadChat}
+                    </span>
                   )}
                 </div>
               )}
@@ -624,8 +626,10 @@ function App() {
                 <>
                   <div className="relative">
                     <Icon size={21} strokeWidth={isActive ? 2.5 : 1.5} />
-                    {path === '/buddy' && room.unreadChat && !isActive && (
-                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full" />
+                    {path === '/buddy' && room.unreadChat > 0 && !isActive && (
+                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-red-500 border-2 border-white rounded-full text-white text-[9px] font-bold flex items-center justify-center px-0.5">
+                        {room.unreadChat > 99 ? '99+' : room.unreadChat}
+                      </span>
                     )}
                   </div>
                   <span className="text-[10px] font-medium">{label.split(' ')[0]}</span>

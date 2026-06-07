@@ -21,7 +21,7 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
   })
   const [chatMessages, setChatMessages] = useState([])
   const [activeReactionId, setActiveReactionId] = useState(null)
-  const [unreadChat, setUnreadChat] = useState(false)
+  const [unreadChat, setUnreadChat] = useState(0)
   const [roomInput, setRoomInput] = useState('')
   const [editingMsgId, setEditingMsgId] = useState(null)
   const [editText, setEditText] = useState('')
@@ -135,8 +135,8 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
       const isNew = latest && latest.ts > latestTsRef.current
       if (isNew) {
         latestTsRef.current = latest.ts
-        setUnreadChat(true)
         if (latest.sender !== mySlot) {
+          setUnreadChat((c) => c + 1)
           playChatPing()
           clearTimeout(notifTimerRef.current)
           if (window.location.pathname !== '/buddy') {
@@ -204,7 +204,7 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
       updateDoc(doc(firestore, 'users', currentUser.uid), { activeRoom: null }).catch(() => {})
     }
     setChatMessages([])
-    setUnreadChat(false)
+    setUnreadChat(0)
     setReplyingTo(null)
     clearTimeout(notifTimerRef.current)
     setPair({ connected: false, roomCode: null, mySlot: null, partnerSlot: null, data: null, partnerNick: '' })
@@ -419,6 +419,29 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     pushMyState()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appState.dailyPlan, pair.connected])
+
+  // Heartbeat: keep online:true alive every 30s (Android kills bg WS → onDisconnect fires)
+  useEffect(() => {
+    if (!pair.connected) return
+    const id = setInterval(() => {
+      const refs = partnerRefs.current
+      if (refs.myRef) update(refs.myRef, { online: true }).catch(() => {})
+    }, 30000)
+    return () => clearInterval(id)
+  }, [pair.connected])
+
+  // Re-assert online:true when tab/app comes back to foreground
+  useEffect(() => {
+    if (!pair.connected) return
+    function onVisible() {
+      if (document.visibilityState === 'visible') {
+        const refs = partnerRefs.current
+        if (refs.myRef) update(refs.myRef, { online: true }).catch(() => {})
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [pair.connected])
 
   useEffect(() => {
     const stored = loadStoredPairing()
