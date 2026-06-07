@@ -81,36 +81,33 @@ export function TimerPage({
     <div className="w-full px-4 md:px-6 pt-4 pb-4">
       <DateBadge selected={selectedDate} today={today} onChange={(d) => { setSelectedDate(d); setBuilding(false) }} />
 
-      {isToday ? (
-        <>
-          <div className="flex bg-stone-100 rounded-full p-1 mb-5 max-w-xs mx-auto">
-            {[['mine', 'My Plan'], ['partner', 'Partner Plan']].map(([k, label]) => (
-              <button key={k} onClick={() => setView(k)}
-                className={`flex-1 py-2 rounded-full text-sm font-semibold transition-colors ${view === k ? 'bg-white shadow text-stone-800' : 'text-stone-400'}`}>
-                {label}
-              </button>
-            ))}
-          </div>
+      {/* Toggle always visible */}
+      <div className="flex bg-stone-100 rounded-full p-1 mb-5 max-w-xs mx-auto">
+        {[['mine', 'My Plan'], ['partner', 'Partner Plan']].map(([k, label]) => (
+          <button key={k} onClick={() => setView(k)}
+            className={`flex-1 py-2 rounded-full text-sm font-semibold transition-colors ${view === k ? 'bg-white shadow text-stone-800' : 'text-stone-400'}`}>
+            {label}
+          </button>
+        ))}
+      </div>
 
-          {view === 'mine' ? (
-            building ? (
-              <PlanBuilder subjects={appState.subjects} onCancel={() => setBuilding(false)}
-                onSave={(items) => { onCreatePlan(items); setBuilding(false) }} />
-            ) : !plan ? (
-              <div className="text-center py-16">
-                <p className="text-stone-400 mb-4">No plan for today.</p>
-                <button onClick={() => setBuilding(true)} className="px-6 py-3 bg-stone-900 text-white rounded-2xl text-sm font-semibold">Build Today&apos;s Plan</button>
-              </div>
-            ) : (
-              <MyPlan plan={plan} now={now} subjects={appState.subjects}
-                onStartItem={onStartItem} onPause={onPause} onDone={onDone} onEndDay={onEndDay}
-                onAddSubject={onAddSubject} onRemoveItem={onRemoveItem} onEditItem={onEditItem} />
-            )
-          ) : (
-            <PartnerPlan plan={partnerPlan} now={now} connected={!!room?.pair?.connected}
-              partnerName={room?.pair?.partnerNick || room?.pair?.data?.name} />
-          )}
-        </>
+      {view === 'partner' ? (
+        <PartnerPlan plan={partnerPlan} now={now} connected={!!room?.pair?.connected}
+          partnerName={room?.pair?.partnerNick || room?.pair?.data?.name} />
+      ) : isToday ? (
+        building ? (
+          <PlanBuilder subjects={appState.subjects} onCancel={() => setBuilding(false)}
+            onSave={(items) => { onCreatePlan(items); setBuilding(false) }} />
+        ) : !plan ? (
+          <div className="text-center py-16">
+            <p className="text-stone-400 mb-4">No plan for today.</p>
+            <button onClick={() => setBuilding(true)} className="px-6 py-3 bg-stone-900 text-white rounded-2xl text-sm font-semibold">Build Today&apos;s Plan</button>
+          </div>
+        ) : (
+          <MyPlan plan={plan} now={now} subjects={appState.subjects}
+            onStartItem={onStartItem} onPause={onPause} onDone={onDone} onEndDay={onEndDay}
+            onAddSubject={onAddSubject} onRemoveItem={onRemoveItem} onEditItem={onEditItem} />
+        )
       ) : isPast ? (
         <PastDayView plan={historicPlan} date={selectedDate} now={now} />
       ) : (
@@ -310,9 +307,25 @@ function FutureDayView({ date, futurePlan, subjects, onSave, onDelete }) {
 function PartnerPlan({ plan, now, connected, partnerName }) {
   if (!connected) return <p className="text-center text-stone-400 py-16">Not connected to a partner.</p>
   if (!plan) return <p className="text-center text-stone-400 py-16">{partnerName || 'Partner'} hasn&apos;t built a plan today.</p>
+
+  const totalElapsed = plan.items.reduce((s, it) => s + liveElapsedSec(it, now), 0)
+  const totalTarget  = plan.items.reduce((s, it) => s + (it.targetSec || 0), 0)
+
+  function fmtHM(sec) {
+    const m = Math.floor(sec / 60)
+    const h = Math.floor(m / 60)
+    const mm = m % 60
+    return h > 0 ? `${h}h ${mm}m` : `${mm}m`
+  }
+
   return (
     <div className="space-y-3">
-      <p className="text-xs text-stone-400 text-center mb-1">{partnerName || 'Partner'} · monitoring</p>
+      <div className="flex items-center justify-center gap-1 bg-white border border-stone-100 rounded-2xl px-4 py-2.5 shadow-sm">
+        <span className="text-xs text-stone-400 mr-1">{partnerName || 'Partner'}</span>
+        <span className="text-base font-bold tabular-nums text-stone-800">{fmtHM(totalElapsed)}</span>
+        <span className="text-stone-300 font-light text-sm mx-1">/</span>
+        <span className="text-base font-bold tabular-nums text-stone-400">{fmtHM(totalTarget)}</span>
+      </div>
       {plan.items.map((it) => <PlanItemCard key={it.id} item={it} now={now} readOnly />)}
       {plan.endNote ? <p className="text-sm text-stone-500 bg-stone-50 rounded-xl p-3">🌙 {plan.endNote}</p> : null}
     </div>
