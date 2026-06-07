@@ -126,11 +126,56 @@ export function endDay(state, { endNote, now }) {
   return archive(state, state.dailyPlan, { endNote: endNote || null, now })
 }
 
+export function saveFuturePlan(state, { date, items }) {
+  return {
+    ...state,
+    futurePlans: { ...(state.futurePlans || {}), [date]: { date, items } },
+  }
+}
+
+export function deleteFuturePlan(state, date) {
+  const futurePlans = { ...(state.futurePlans || {}) }
+  delete futurePlans[date]
+  return { ...state, futurePlans }
+}
+
+export function autoActivateFuturePlan(state, todayDate) {
+  if (state.dailyPlan) return state
+  const fp = (state.futurePlans || {})[todayDate]
+  if (!fp?.items?.length) return state
+  const futurePlans = { ...(state.futurePlans || {}) }
+  delete futurePlans[todayDate]
+  return {
+    ...state,
+    futurePlans,
+    dailyPlan: {
+      date: todayDate,
+      items: fp.items.map((it) => ({
+        id: newId(),
+        subjectId: it.subjectId || null,
+        subjectName: it.subjectName || 'Subject',
+        desc: it.desc || '',
+        targetSec: Math.max(60, it.targetSec || 0),
+        elapsedSec: 0,
+        runStartTs: null,
+        status: 'idle',
+        logs: [],
+      })),
+      activeItemId: null,
+      endNote: null,
+      endedAt: null,
+    },
+  }
+}
+
 export function autoArchiveIfPastCutoff(state, { todayDate, nowMinutes, now }) {
   const plan = state.dailyPlan
-  if (!plan) return state
+  if (!plan) return autoActivateFuturePlan(state, todayDate)
   const pastDay = plan.date < todayDate
   const pastCutoff = plan.date === todayDate && nowMinutes >= (state.dayCutoff ?? 0)
-  if (pastDay || pastCutoff) return archive(state, plan, { endNote: null, now })
+  if (pastDay || pastCutoff) {
+    const archived = archive(state, plan, { endNote: null, now })
+    return autoActivateFuturePlan(archived, todayDate)
+  }
   return state
 }

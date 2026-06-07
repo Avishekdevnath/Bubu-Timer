@@ -15,11 +15,11 @@ import {
 } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { auth, firestore } from './lib/firebase.js'
-import { registerPushToken, subscribeForegroundMessages } from './lib/messaging.js'
+import { registerPushToken, savePushToken, subscribeForegroundMessages, scheduleTimerDoneNotification, cancelTimerNotification } from './lib/messaging.js'
 import { todayStr } from './lib/dates.js'
 import { loadStoredState, loadThemeValue, saveStoredState, saveThemeValue } from './lib/storage.js'
 import { flushCloudPushNow, mergeCloudIntoLocal, pullCloudState, queueCloudPush } from './lib/cloudSync.js'
-import { buildPlan, startItem, pauseItem, markItemDone, endDay, autoArchiveIfPastCutoff, addItemToPlan, removeItemFromPlan } from './features/plan/planModel.js'
+import { buildPlan, startItem, pauseItem, markItemDone, endDay, autoArchiveIfPastCutoff, addItemToPlan, removeItemFromPlan, saveFuturePlan, deleteFuturePlan } from './features/plan/planModel.js'
 import { dhakaNowMinutes } from './lib/dates.js'
 import { ProgressNoteModal } from './components/ProgressNoteModal.jsx'
 import { EndDayModal } from './components/EndDayModal.jsx'
@@ -213,6 +213,23 @@ function App() {
       setCurrentUser(baseProfile)
       // Register for push notifications (fire-and-forget)
       registerPushToken(user.uid).catch(() => {})
+      // Wire up Capacitor native push listeners (no-op in browser)
+      if (window.Capacitor?.isNativePlatform?.()) {
+        import('@capacitor/push-notifications').then(({ PushNotifications }) => {
+          PushNotifications.addListener('registration', (tokenData) => {
+            savePushToken(user.uid, tokenData.value).catch(() => {})
+          })
+          PushNotifications.addListener('registrationError', (err) => {
+            console.warn('[FCM] Native registration error', err)
+          })
+          PushNotifications.addListener('pushNotificationReceived', (notification) => {
+            // App is foregrounded — show as toast
+            const title = notification.title || 'New message'
+            const body = notification.body || ''
+            showToast(`${title}: ${body}`.slice(0, 80), 'study-t')
+          })
+        }).catch(() => {})
+      }
       try {
         const userRef = doc(firestore, 'users', user.uid)
         const snap = await getDoc(userRef)
@@ -331,6 +348,12 @@ function App() {
     patchState((s) => startItem(s, itemId, Date.now()))
     const it = plan?.items?.find((i) => i.id === itemId)
     addLog(`Started: ${it?.subjectName || ''}`, 'ls')
+    // Schedule native alarm for when this item's remaining time expires
+    if (it) {
+      const elapsed = it.elapsedSec || 0
+      const remaining = Math.max(0, it.targetSec - elapsed)
+      scheduleTimerDoneNotification(it.subjectName, remaining).catch(() => {})
+    }
   }
 
   function removeFromPlan(itemId) {
@@ -361,6 +384,15 @@ function App() {
         return m.mode === 'switchTo' ? startItem(paused, m.nextItemId, Date.now()) : paused
       })
       addLog(`Progress: ${note}`, 'ls')
+      // Cancel previous timer alarm; if switching items, schedule new one
+      cancelTimerNotification().catch(() => {})
+      if (m.mode === 'switchTo') {
+        const nextItem = appState.dailyPlan?.items?.find((i) => i.id === m.nextItemId)
+        if (nextItem) {
+          const remaining = Math.max(0, nextItem.targetSec - (nextItem.elapsedSec || 0))
+          scheduleTimerDoneNotification(nextItem.subjectName, remaining).catch(() => {})
+        }
+      }
     } catch (e) {
       showToast(e.message, 'bank-t')
     }
@@ -372,6 +404,7 @@ function App() {
     addLog('Day ended', 'lk')
     setEndDayOpen(false)
     showToast('Day ended & archived', 'study-t')
+    cancelTimerNotification().catch(() => {})
   }
 
   function createPlan(items) {
@@ -382,6 +415,16 @@ function App() {
   function addSubjectToPlan(item) {
     patchState((s) => addItemToPlan(s, item))
     showToast(`Added: ${item.subjectName}`, 'study-t')
+  }
+
+  function handleSaveFuturePlan(date, items) {
+    patchState((s) => saveFuturePlan(s, { date, items }))
+    showToast('Plan saved', 'study-t')
+  }
+
+  function handleDeleteFuturePlan(date) {
+    patchState((s) => deleteFuturePlan(s, date))
+    showToast('Plan deleted', '')
   }
 
 
@@ -520,6 +563,8 @@ function App() {
               onStartItem={handleStartItem} onPause={openPauseNote} onDone={openDoneNote}
               onEndDay={() => setEndDayOpen(true)} onCreatePlan={createPlan} onAddSubject={addSubjectToPlan}
               onRemoveItem={removeFromPlan}
+              onSaveFuturePlan={handleSaveFuturePlan}
+              onDeleteFuturePlan={handleDeleteFuturePlan}
               navigate={navigate}
             />} />
             <Route path="/subjects" element={<SubjectsPage

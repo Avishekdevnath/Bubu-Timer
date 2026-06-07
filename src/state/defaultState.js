@@ -15,5 +15,6 @@ export function createDefaultState() {
     dayCutoff: DEFAULT_CUTOFF_MIN,
     dailyPlan: null,
     planHistory: [],
+    futurePlans: {},
   }
 }

@@ -108,7 +108,8 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
 
     const chatRef = ref(database, `rooms/${code}/chat`)
     partnerRefs.current.chatRef = chatRef
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+    // Web PWA: request browser notification permission
+    if (!window.Capacitor?.isNativePlatform?.() && typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission()
     }
 
@@ -138,12 +139,20 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
         if (latest.sender !== mySlot) {
           playChatPing()
           clearTimeout(notifTimerRef.current)
-          if (window.location.pathname !== '/buddy' && Notification.permission === 'granted') {
-            new Notification('New message from study partner', {
-              body: latest.text,
-              icon: '/icon-192.png',
-              tag: 'bubu-chat',
-            })
+          if (window.location.pathname !== '/buddy') {
+            if (window.Capacitor?.isNativePlatform?.()) {
+              // Native: show local notification (FCM handles truly background delivery)
+              import('../../lib/messaging.js').then(({ showChatNotification }) => {
+                showChatNotification(latest.senderName || 'Study partner', latest.text)
+              }).catch(() => {})
+            } else if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              // Web PWA
+              new Notification('New message from study partner', {
+                body: latest.text,
+                icon: '/icon-192.png',
+                tag: 'bubu-chat',
+              })
+            }
           }
         }
         setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)

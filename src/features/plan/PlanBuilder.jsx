@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { DurationControl } from './DurationControl.jsx'
 import { DescEditor } from './DescEditor.jsx'
 
-export function PlanBuilder({ subjects, onSave, onCancel }) {
-  const [rows, setRows] = useState([])
+export function PlanBuilder({ subjects, onSave, onCancel, initialRows = [] }) {
+  const [rows, setRows] = useState(initialRows)
   function addRow() {
     const first = subjects[0]
     setRows((r) => [...r, { key: `${Date.now()}-${r.length}`, subjectId: first?.id || '', minutes: 30, desc: '' }])

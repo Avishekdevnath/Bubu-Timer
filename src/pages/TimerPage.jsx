@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { PlanItemCard } from '../features/plan/PlanItemCard.jsx'
 import { PlanBuilder } from '../features/plan/PlanBuilder.jsx'
 import { DurationControl } from '../features/plan/DurationControl.jsx'
@@ -6,44 +7,142 @@ import { liveElapsedSec, itemRemainingSec } from '../features/plan/planModel.js'
 import { formatRemaining, formatStudyMinutes } from '../lib/format.js'
 import { fromPlanPayload } from '../features/plan/planSync.js'
 import { DescEditor } from '../features/plan/DescEditor.jsx'
+import { todayStr } from '../lib/dates.js'
 
-export function TimerPage({ appState, room, onStartItem, onPause, onDone, onEndDay, onCreatePlan, onAddSubject, onRemoveItem }) {
+function offsetDate(dateStr, days) {
+  const d = new Date(`${dateStr}T00:00:00`)
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+function formatDateLabel(dateStr, today) {
+  if (dateStr === today) return 'Today'
+  if (dateStr === offsetDate(today, -1)) return 'Yesterday'
+  if (dateStr === offsetDate(today, 1)) return 'Tomorrow'
+  const d = new Date(`${dateStr}T00:00:00`)
+  return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+function DateNav({ selected, today, onChange }) {
+  const isPastLimit = selected <= offsetDate(today, -60)
+  const isFutureLimit = selected >= offsetDate(today, 14)
+  const label = formatDateLabel(selected, today)
+  const isToday = selected === today
+
+  return (
+    <div className="flex items-center justify-between mb-4 bg-white border border-stone-100 rounded-2xl px-3 py-2.5 shadow-sm">
+      <button
+        onClick={() => !isPastLimit && onChange(offsetDate(selected, -1))}
+        disabled={isPastLimit}
+        className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-100 disabled:opacity-30 transition-colors"
+      >
+        <ChevronLeft size={18} className="text-stone-600" />
+      </button>
+
+      <div className="flex flex-col items-center gap-0.5">
+        <div className="flex items-center gap-2">
+          <CalendarDays size={13} className="text-stone-400" />
+          <span className="text-sm font-semibold text-stone-800">{label}</span>
+          {isToday && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-900 text-white">Today</span>
+          )}
+        </div>
+        <button
+          onClick={() => onChange(today)}
+          className={`text-[10px] text-stone-400 hover:text-stone-600 transition-colors ${isToday ? 'invisible' : ''}`}
+        >
+          Jump to today
+        </button>
+      </div>
+
+      <button
+        onClick={() => !isFutureLimit && onChange(offsetDate(selected, 1))}
+        disabled={isFutureLimit}
+        className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-100 disabled:opacity-30 transition-colors"
+      >
+        <ChevronRight size={18} className="text-stone-600" />
+      </button>
+    </div>
+  )
+}
+
+export function TimerPage({
+  appState, room,
+  onStartItem, onPause, onDone, onEndDay, onCreatePlan, onAddSubject, onRemoveItem,
+  onSaveFuturePlan, onDeleteFuturePlan,
+  navigate,
+}) {
+  const today = todayStr()
+  const [selectedDate, setSelectedDate] = useState(today)
   const [view, setView] = useState('mine')
   const [building, setBuilding] = useState(false)
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now()
+
   const plan = appState.dailyPlan
   const partnerPlan = fromPlanPayload(room?.pair?.data?.plan)
 
+  const isToday = selectedDate === today
+  const isFuture = selectedDate > today
+  const isPast = selectedDate < today
+
+  const historicPlan = isPast
+    ? (appState.planHistory || []).find((p) => p.date === selectedDate)
+    : null
+  const futurePlan = isFuture
+    ? (appState.futurePlans || {})[selectedDate]
+    : null
+
   return (
     <div className="w-full px-4 md:px-6 pt-4 pb-4">
-      <div className="flex bg-stone-100 rounded-full p-1 mb-5 max-w-xs mx-auto">
-        {[['mine', 'My Plan'], ['partner', 'Partner Plan']].map(([k, label]) => (
-          <button key={k} onClick={() => setView(k)}
-            className={`flex-1 py-2 rounded-full text-sm font-semibold transition-colors ${view === k ? 'bg-white shadow text-stone-800' : 'text-stone-400'}`}>{label}</button>
-        ))}
-      </div>
+      <DateNav selected={selectedDate} today={today} onChange={(d) => { setSelectedDate(d); setBuilding(false) }} />
 
-      {view === 'mine' ? (
-        building ? (
-          <PlanBuilder subjects={appState.subjects} onCancel={() => setBuilding(false)}
-            onSave={(items) => { onCreatePlan(items); setBuilding(false) }} />
-        ) : !plan ? (
-          <div className="text-center py-16">
-            <p className="text-stone-400 mb-4">No plan for today.</p>
-            <button onClick={() => setBuilding(true)} className="px-6 py-3 bg-stone-900 text-white rounded-2xl text-sm font-semibold">Build Today&apos;s Plan</button>
+      {isToday ? (
+        <>
+          <div className="flex bg-stone-100 rounded-full p-1 mb-5 max-w-xs mx-auto">
+            {[['mine', 'My Plan'], ['partner', 'Partner Plan']].map(([k, label]) => (
+              <button key={k} onClick={() => setView(k)}
+                className={`flex-1 py-2 rounded-full text-sm font-semibold transition-colors ${view === k ? 'bg-white shadow text-stone-800' : 'text-stone-400'}`}>
+                {label}
+              </button>
+            ))}
           </div>
-        ) : (
-          <MyPlan plan={plan} now={now} subjects={appState.subjects}
-            onStartItem={onStartItem} onPause={onPause} onDone={onDone} onEndDay={onEndDay}
-            onAddSubject={onAddSubject} onRemoveItem={onRemoveItem} />
-        )
+
+          {view === 'mine' ? (
+            building ? (
+              <PlanBuilder subjects={appState.subjects} onCancel={() => setBuilding(false)}
+                onSave={(items) => { onCreatePlan(items); setBuilding(false) }} />
+            ) : !plan ? (
+              <div className="text-center py-16">
+                <p className="text-stone-400 mb-4">No plan for today.</p>
+                <button onClick={() => setBuilding(true)} className="px-6 py-3 bg-stone-900 text-white rounded-2xl text-sm font-semibold">Build Today&apos;s Plan</button>
+              </div>
+            ) : (
+              <MyPlan plan={plan} now={now} subjects={appState.subjects}
+                onStartItem={onStartItem} onPause={onPause} onDone={onDone} onEndDay={onEndDay}
+                onAddSubject={onAddSubject} onRemoveItem={onRemoveItem} />
+            )
+          ) : (
+            <PartnerPlan plan={partnerPlan} now={now} connected={!!room?.pair?.connected}
+              partnerName={room?.pair?.partnerNick || room?.pair?.data?.name} />
+          )}
+        </>
+      ) : isPast ? (
+        <PastDayView plan={historicPlan} date={selectedDate} now={now} />
       ) : (
-        <PartnerPlan plan={partnerPlan} now={now} connected={!!room?.pair?.connected} partnerName={room?.pair?.partnerNick || room?.pair?.data?.name} />
+        <FutureDayView
+          date={selectedDate}
+          futurePlan={futurePlan}
+          subjects={appState.subjects}
+          onSave={(items) => onSaveFuturePlan(selectedDate, items)}
+          onDelete={() => onDeleteFuturePlan(selectedDate)}
+        />
       )}
     </div>
   )
 }
+
+/* ── Today: active plan ─────────────────────────────────────────────────── */
 
 function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, onAddSubject, onRemoveItem }) {
   const active = plan.items.find((i) => i.id === plan.activeItemId)
@@ -119,6 +218,102 @@ function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, o
     </div>
   )
 }
+
+/* ── Past day: read-only ────────────────────────────────────────────────── */
+
+function PastDayView({ plan, date, now }) {
+  if (!plan) {
+    return (
+      <div className="text-center py-16">
+        <CalendarDays size={32} className="text-stone-200 mx-auto mb-3" />
+        <p className="text-sm text-stone-400">No plan recorded for this day.</p>
+      </div>
+    )
+  }
+
+  const totalSec = plan.items.reduce((s, it) => s + (it.elapsedSec || 0), 0)
+  const doneCount = plan.items.filter((i) => i.status === 'done').length
+
+  return (
+    <div className="space-y-3">
+      <div className="bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3 flex items-center justify-between">
+        <span className="text-xs text-stone-500 font-medium">{doneCount}/{plan.items.length} done</span>
+        <span className="text-xs font-semibold text-stone-700">{formatStudyMinutes(Math.floor(totalSec / 60))} studied</span>
+      </div>
+
+      {plan.items.map((it) => (
+        <PlanItemCard key={it.id} item={it} now={now} readOnly />
+      ))}
+
+      {plan.endNote && (
+        <div className="bg-white border border-stone-100 rounded-2xl px-4 py-3 shadow-sm">
+          <p className="text-xs text-stone-500 italic">🌙 {plan.endNote}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Future day: plan ahead ─────────────────────────────────────────────── */
+
+function FutureDayView({ date, futurePlan, subjects, onSave, onDelete }) {
+  const [editing, setEditing] = useState(!futurePlan)
+
+  if (editing || !futurePlan) {
+    return (
+      <div className="space-y-3">
+        <p className="text-xs font-bold tracking-widest text-stone-400 uppercase px-1">Plan Ahead</p>
+        <PlanBuilder
+          subjects={subjects}
+          initialRows={futurePlan?.items?.map((it, i) => ({
+            key: `existing-${i}`,
+            subjectId: it.subjectId || '',
+            minutes: Math.round((it.targetSec || 1800) / 60),
+            desc: it.desc || '',
+          })) || []}
+          onCancel={() => {
+            if (futurePlan) setEditing(false)
+          }}
+          onSave={(items) => { onSave(items); setEditing(false) }}
+        />
+      </div>
+    )
+  }
+
+  const totalMin = futurePlan.items.reduce((s, it) => s + Math.round((it.targetSec || 0) / 60), 0)
+
+  return (
+    <div className="space-y-3">
+      <div className="bg-stone-50 border border-stone-100 rounded-2xl px-4 py-3 flex items-center justify-between">
+        <span className="text-xs text-stone-500 font-medium">{futurePlan.items.length} subject{futurePlan.items.length !== 1 ? 's' : ''} planned</span>
+        <span className="text-xs font-semibold text-stone-700">{formatStudyMinutes(totalMin)} target</span>
+      </div>
+
+      {futurePlan.items.map((it, i) => (
+        <div key={i} className="bg-white border border-stone-100 rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-semibold text-stone-800">{it.subjectName}</span>
+            <span className="text-xs font-semibold text-stone-500">{formatStudyMinutes(Math.round((it.targetSec || 0) / 60))}</span>
+          </div>
+          {it.desc ? <p className="text-xs text-stone-400 leading-snug">{it.desc}</p> : null}
+        </div>
+      ))}
+
+      <div className="flex gap-2 pt-1">
+        <button onClick={() => setEditing(true)}
+          className="flex-1 py-2.5 rounded-xl border border-stone-200 text-stone-700 text-sm font-semibold hover:bg-stone-50">
+          Edit Plan
+        </button>
+        <button onClick={onDelete}
+          className="px-4 py-2.5 rounded-xl border border-red-100 text-red-500 text-sm font-semibold hover:bg-red-50">
+          Delete
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ── Partner plan view ──────────────────────────────────────────────────── */
 
 function PartnerPlan({ plan, now, connected, partnerName }) {
   if (!connected) return <p className="text-center text-stone-400 py-16">Not connected to a partner.</p>
