@@ -3,7 +3,7 @@ export const THEME_KEY = 'sonali_theme'
 export const PAIR_KEY = 'bubu_pair'
 
 export const STATE_VERSION = 2
-export const DEFAULT_CUTOFF_MIN = 23 * 60 + 30 // 11:30 PM
+export const DEFAULT_CUTOFF_MIN = 23 * 60 + 59 // 11:59 PM
 
 export function createDefaultState() {
   return {

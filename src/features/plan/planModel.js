@@ -141,6 +141,45 @@ export function updateItemInPlan(state, { id, targetSec, desc }) {
   }
 }
 
+export function autoPauseForAway(state, { id, now }) {
+  if (!state.dailyPlan) return state
+  const plan = state.dailyPlan
+  if (plan.activeItemId !== id) return state
+  return {
+    ...state,
+    dailyPlan: {
+      ...plan,
+      activeItemId: null,
+      items: plan.items.map((it) =>
+        it.id === id
+          ? { ...it, elapsedSec: liveElapsedSec(it, now), runStartTs: null, status: 'paused' }
+          : it
+      ),
+    },
+  }
+}
+
+export function resumeAfterAway(state, { id, subtractSec, now, note }) {
+  if (!state.dailyPlan) return state
+  const plan = state.dailyPlan
+  const item = plan.items.find((it) => it.id === id)
+  if (!item) return state
+  const newElapsed = Math.max(0, (item.elapsedSec || 0) - (subtractSec || 0))
+  const logs = note ? [...item.logs, { ts: now, note }] : item.logs
+  return {
+    ...state,
+    dailyPlan: {
+      ...plan,
+      activeItemId: id,
+      items: plan.items.map((it) =>
+        it.id === id
+          ? { ...it, elapsedSec: newElapsed, runStartTs: now, status: 'running', logs }
+          : it
+      ),
+    },
+  }
+}
+
 export function saveFuturePlan(state, { date, items }) {
   return {
     ...state,

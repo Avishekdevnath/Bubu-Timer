@@ -21,7 +21,7 @@ import { registerPushToken, savePushToken, subscribeForegroundMessages, schedule
 import { todayStr } from './lib/dates.js'
 import { loadStoredState, loadThemeValue, saveStoredState, saveThemeValue } from './lib/storage.js'
 import { flushCloudPushNow, mergeCloudIntoLocal, pullCloudState, queueCloudPush } from './lib/cloudSync.js'
-import { buildPlan, startItem, pauseItem, markItemDone, endDay, autoArchiveIfPastCutoff, addItemToPlan, removeItemFromPlan, updateItemInPlan, saveFuturePlan, deleteFuturePlan } from './features/plan/planModel.js'
+import { buildPlan, startItem, pauseItem, markItemDone, endDay, autoArchiveIfPastCutoff, addItemToPlan, removeItemFromPlan, updateItemInPlan, saveFuturePlan, deleteFuturePlan, autoPauseForAway, resumeAfterAway } from './features/plan/planModel.js'
 import { dhakaNowMinutes } from './lib/dates.js'
 import { ProgressNoteModal } from './components/ProgressNoteModal.jsx'
 import { EndDayModal } from './components/EndDayModal.jsx'
@@ -43,6 +43,7 @@ const PlanHistoryPage    = lazy(() => import('./pages/PlanHistoryPage.jsx').then
 import { SubjectModal } from './features/subjects/SubjectModal.jsx'
 import { ReportModal } from './features/reports/ReportModal.jsx'
 import { ConfirmReset } from './components/ConfirmReset.jsx'
+import { AwayModal } from './components/AwayModal.jsx'
 
 const tabs = [
   { label: 'Home', path: '/home', icon: Home },
@@ -80,6 +81,9 @@ function App() {
   const toastTimer = useRef(null)
   const cloudUidRef = useRef(null)
   const [keyboardOpen, setKeyboardOpen] = useState(false)
+  const [awayModal, setAwayModal] = useState(null)
+  const hiddenAtRef = useRef(null)
+  const appStateRef = useRef(appState)
   const [soundOn, setSoundOn] = useState(() => localStorage.getItem('bubu_sound') !== 'off')
   const soundOnRef = useRef(soundOn)
   const [chatSoundOn, setChatSoundOn] = useState(() => localStorage.getItem('bubu_chat_sound') !== 'off')
@@ -282,6 +286,9 @@ function App() {
   useEffect(() => { soundOnRef.current = soundOn }, [soundOn])
   useEffect(() => { chatSoundOnRef.current = chatSoundOn }, [chatSoundOn])
 
+  // Keep appStateRef current for use inside stable event listeners
+  useEffect(() => { appStateRef.current = appState }, [appState])
+
   // Detect soft keyboard — used to hide bottom nav on chat page (WhatsApp-style)
   useEffect(() => {
     const vv = window.visualViewport
@@ -292,6 +299,32 @@ function App() {
     vv.addEventListener('resize', onResize)
     return () => vv.removeEventListener('resize', onResize)
   }, [])
+
+  // Detect screen-off while timer running — auto-pause + show trim modal on return
+  useEffect(() => {
+    const AWAY_THRESHOLD_MS = 30 * 60 * 1000 // 30 min
+    function onVisibility() {
+      if (document.visibilityState === 'hidden') {
+        hiddenAtRef.current = Date.now()
+        return
+      }
+      const hiddenAt = hiddenAtRef.current
+      if (!hiddenAt) return
+      const now = Date.now()
+      const awayMs = now - hiddenAt
+      hiddenAtRef.current = null
+      if (awayMs < AWAY_THRESHOLD_MS) return
+      const plan = appStateRef.current.dailyPlan
+      if (!plan?.activeItemId) return
+      const activeItem = plan.items.find((it) => it.id === plan.activeItemId)
+      if (!activeItem || activeItem.status !== 'running') return
+      patchState((s) => autoPauseForAway(s, { id: plan.activeItemId, now }))
+      cancelTimerNotification().catch(() => {})
+      setAwayModal({ awayMin: Math.floor(awayMs / 60000), itemId: plan.activeItemId, itemName: activeItem.subjectName })
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, []) // patchState and cancelTimerNotification are stable
 
   // Clock tick sound while studying
   useEffect(() => {
@@ -450,6 +483,33 @@ function App() {
     showToast('Plan deleted', '')
   }
 
+
+  function handleAwayConfirm(studiedMin) {
+    if (!awayModal) return
+    const { awayMin, itemId, itemName } = awayModal
+    const subtractSec = (awayMin - studiedMin) * 60
+    const note = subtractSec > 0 ? `Away ${awayMin}m, studied ${studiedMin}m (trimmed ${awayMin - studiedMin}m)` : null
+    const now = Date.now()
+    patchState((s) => resumeAfterAway(s, { id: itemId, subtractSec, now, note }))
+    const item = appStateRef.current.dailyPlan?.items?.find((it) => it.id === itemId)
+    if (item) {
+      const newElapsed = Math.max(0, (item.elapsedSec || 0) - subtractSec)
+      scheduleTimerDoneNotification(itemName, Math.max(0, item.targetSec - newElapsed)).catch(() => {})
+    }
+    setAwayModal(null)
+  }
+
+  function handleAwayKeepAll() {
+    if (!awayModal) return
+    const { itemId, itemName } = awayModal
+    const now = Date.now()
+    patchState((s) => resumeAfterAway(s, { id: itemId, subtractSec: 0, now, note: null }))
+    const item = appStateRef.current.dailyPlan?.items?.find((it) => it.id === itemId)
+    if (item) {
+      scheduleTimerDoneNotification(itemName, Math.max(0, item.targetSec - (item.elapsedSec || 0))).catch(() => {})
+    }
+    setAwayModal(null)
+  }
 
   async function signup(event) {
     event.preventDefault()
@@ -655,6 +715,7 @@ function App() {
 
       {/* ── Overlays ── */}
       {toast ? <div className="toast show">{toast.message}</div> : null}
+      {awayModal ? <AwayModal awayMin={awayModal.awayMin} itemName={awayModal.itemName} onConfirm={handleAwayConfirm} onKeepAll={handleAwayKeepAll} /> : null}
       {noteModal ? <ProgressNoteModal mode={noteModal.mode} onSubmit={submitNote} onCancel={() => setNoteModal(null)} /> : null}
       {endDayOpen ? <EndDayModal
         onSubmit={submitEndDay}
