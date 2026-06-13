@@ -65,6 +65,13 @@ export function TimerPage({
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now()
 
+  const plan = appState.dailyPlan
+  const partnerPlan = fromPlanPayload(room?.pair?.data?.plan)
+
+  const isToday = selectedDate === today
+  const isFuture = selectedDate > today
+  const isPast = selectedDate < today
+
   useEffect(() => {
     if (view !== 'partner' || !isPast || !room?.pair?.connected || !room?.fetchPartnerHistory) {
       setPartnerHistoryPlan(null)
@@ -77,13 +84,6 @@ export function TimerPage({
       .catch(() => setPartnerHistoryLoading(false))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate, view, isPast, room?.pair?.connected])
-
-  const plan = appState.dailyPlan
-  const partnerPlan = fromPlanPayload(room?.pair?.data?.plan)
-
-  const isToday = selectedDate === today
-  const isFuture = selectedDate > today
-  const isPast = selectedDate < today
 
   const historicPlan = isPast
     ? (appState.planHistory || []).find((p) => p.date === selectedDate)
