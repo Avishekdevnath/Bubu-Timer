@@ -31,6 +31,7 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
   const notifTimerRef = useRef(null)
   const typingTimerRef = useRef(null)
   const partnerRefs = useRef({ myRef: null, partnerRef: null, lastPush: 0, lastMode: null })
+  const prevHistoryLenRef = useRef(null) // null = not yet initialized for current connection
   const msgsCacheRef = useRef({})
   const latestTsRef = useRef(0)
 
@@ -382,6 +383,14 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     api.setTyping(pair.roomCode, pair.mySlot, false).catch(() => {})
   }
 
+  /* ── Push plan history when day ends ── */
+  async function fetchPartnerHistory(date) {
+    const { roomCode, mySlot } = partnerRefs.current
+    if (!roomCode || !mySlot) return null
+    const partnerSlot = mySlot === 'A' ? 'B' : 'A'
+    return api.fetchPlanHistory(roomCode, partnerSlot, date)
+  }
+
   /* ── Push updated name to room (call after profile save) ── */
   function pushMyName(name) {
     const refs = partnerRefs.current
@@ -429,6 +438,30 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     }, 30000)
     return () => clearInterval(id)
   }, [pair.connected])
+
+  // Push archived plan to RTDB history when day ends (planHistory grows)
+  useEffect(() => {
+    if (!pair.connected) {
+      prevHistoryLenRef.current = null
+      return
+    }
+    const history = appState.planHistory || []
+    if (prevHistoryLenRef.current === null) {
+      prevHistoryLenRef.current = history.length
+      return
+    }
+    const prevLen = prevHistoryLenRef.current
+    prevHistoryLenRef.current = history.length
+    if (history.length <= prevLen) return
+    for (let i = prevLen; i < history.length; i++) {
+      const entry = history[i]
+      if (!entry?.date) continue
+      const { roomCode, mySlot } = partnerRefs.current
+      if (!roomCode || !mySlot) continue
+      api.pushPlanHistory(roomCode, mySlot, entry.date, toPlanPayload(entry)).catch(() => {})
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appState.planHistory?.length, pair.connected])
 
   // Re-assert online:true when tab/app comes back to foreground
   useEffect(() => {
@@ -500,7 +533,7 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     deleteForMe: deleteForMeFn, deleteForEveryone: deleteForEveryoneFn,
     editMessage: editMessageFn, copyText, saveNickname: saveNicknameFn,
     togglePin: togglePinFn, toggleStar: toggleStarFn,
-    notifyTyping, stopTyping, markRead, pushMyName,
+    notifyTyping, stopTyping, markRead, pushMyName, fetchPartnerHistory,
     createChecklist, updateChecklist, deleteChecklist,
     addItem, updateItem, deleteItem, toggleItem, toggleArchive,
   }

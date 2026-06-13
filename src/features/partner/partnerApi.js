@@ -1,4 +1,4 @@
-import { get, push, ref, remove, update } from 'firebase/database'
+import { get, push, ref, remove, set, update } from 'firebase/database'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { database, storage } from '../../lib/firebase.js'
 
@@ -167,6 +167,16 @@ export function updateChecklistItem(code, listId, itemId, patch) {
 
 export function deleteChecklistItem(code, listId, itemId) {
   return remove(ref(database, `rooms/${code}/checklists/${listId}/items/${itemId}`))
+}
+
+/* ── Plan history ── */
+export function pushPlanHistory(code, slot, date, payload) {
+  return set(ref(database, `rooms/${code}/history/${slot}/${date}`), payload)
+}
+
+export async function fetchPlanHistory(code, slot, date) {
+  const snap = await get(ref(database, `rooms/${code}/history/${slot}/${date}`))
+  return snap.val()
 }
 
 /* ── Room management ── */

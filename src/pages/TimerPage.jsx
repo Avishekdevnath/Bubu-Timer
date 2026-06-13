@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { CalendarDays } from 'lucide-react'
 import { PlanItemCard } from '../features/plan/PlanItemCard.jsx'
 import { PlanBuilder } from '../features/plan/PlanBuilder.jsx'
@@ -60,8 +60,23 @@ export function TimerPage({
   const [selectedDate, setSelectedDate] = useState(today)
   const [view, setView] = useState('mine')
   const [building, setBuilding] = useState(false)
+  const [partnerHistoryPlan, setPartnerHistoryPlan] = useState(null)
+  const [partnerHistoryLoading, setPartnerHistoryLoading] = useState(false)
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now()
+
+  useEffect(() => {
+    if (view !== 'partner' || !isPast || !room?.pair?.connected || !room?.fetchPartnerHistory) {
+      setPartnerHistoryPlan(null)
+      return
+    }
+    setPartnerHistoryLoading(true)
+    setPartnerHistoryPlan(null)
+    room.fetchPartnerHistory(selectedDate)
+      .then((payload) => { setPartnerHistoryPlan(fromPlanPayload(payload)); setPartnerHistoryLoading(false) })
+      .catch(() => setPartnerHistoryLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDate, view, isPast, room?.pair?.connected])
 
   const plan = appState.dailyPlan
   const partnerPlan = fromPlanPayload(room?.pair?.data?.plan)
@@ -92,8 +107,17 @@ export function TimerPage({
       </div>
 
       {view === 'partner' ? (
-        <PartnerPlan plan={partnerPlan} now={now} connected={!!room?.pair?.connected}
-          partnerName={room?.pair?.partnerNick || room?.pair?.data?.name} />
+        isPast ? (
+          partnerHistoryLoading ? (
+            <div className="text-center py-16"><p className="text-sm text-stone-400">Loading...</p></div>
+          ) : (
+            <PartnerPlan plan={partnerHistoryPlan} now={now} connected={!!room?.pair?.connected}
+              partnerName={room?.pair?.partnerNick || room?.pair?.data?.name} isHistory date={selectedDate} />
+          )
+        ) : (
+          <PartnerPlan plan={partnerPlan} now={now} connected={!!room?.pair?.connected}
+            partnerName={room?.pair?.partnerNick || room?.pair?.data?.name} />
+        )
       ) : isToday ? (
         building ? (
           <PlanBuilder subjects={appState.subjects} onCancel={() => setBuilding(false)}
@@ -304,9 +328,18 @@ function FutureDayView({ date, futurePlan, subjects, onSave, onDelete }) {
 
 /* ── Partner plan view ──────────────────────────────────────────────────── */
 
-function PartnerPlan({ plan, now, connected, partnerName }) {
+function PartnerPlan({ plan, now, connected, partnerName, isHistory, date }) {
   if (!connected) return <p className="text-center text-stone-400 py-16">Not connected to a partner.</p>
-  if (!plan) return <p className="text-center text-stone-400 py-16">{partnerName || 'Partner'} hasn&apos;t built a plan today.</p>
+  if (!plan) return (
+    <div className="text-center py-16">
+      <CalendarDays size={32} className="text-stone-200 mx-auto mb-3" />
+      <p className="text-sm text-stone-400">
+        {isHistory
+          ? `No plan recorded for ${partnerName || 'partner'} on this day.`
+          : `${partnerName || 'Partner'} hasn't built a plan today.`}
+      </p>
+    </div>
+  )
 
   const totalElapsed = plan.items.reduce((s, it) => s + liveElapsedSec(it, now), 0)
   const totalTarget  = plan.items.reduce((s, it) => s + (it.targetSec || 0), 0)
