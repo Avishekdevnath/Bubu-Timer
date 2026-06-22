@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createDefaultState } from '../../state/defaultState.js'
-import { buildPlan, liveElapsedSec, itemRemainingSec, startItem, pauseItem, markItemDone, endDay, autoArchiveIfPastCutoff } from './planModel.js'
+import { buildPlan, liveElapsedSec, itemRemainingSec, startItem, pauseItem, markItemDone, endDay, autoArchiveIfPastCutoff, reduceProgress } from './planModel.js'
 
 const SUBJ = { subjectId: 's1', subjectName: 'Math', desc: 'Algebra', targetSec: 3600 }
 
@@ -91,6 +91,31 @@ describe('markItemDone', () => {
     const done = markItemDone(running, { note: 'finished', now: 4000 })
     expect(done.dailyPlan.items[0].status).toBe('done')
     expect(done.dailyPlan.activeItemId).toBeNull()
+  })
+})
+
+describe('reduceProgress', () => {
+  it('reduces elapsed time while keeping item running', () => {
+    const { s, id } = planWithOne()
+    const running = startItem(s, id, 10_000)
+    const reduced = reduceProgress(running, { id, reduceSec: 300, now: 50_000 })
+    const it = reduced.dailyPlan.items[0]
+    expect(it.status).toBe('running')
+    expect(it.elapsedSec).toBe(3300) // 40 sec elapsed - 5 min reduced = -290, but we take liveElapsedSec
+  })
+  it('does not reduce below zero', () => {
+    const { s, id } = planWithOne()
+    const running = startItem(s, id, 10_000)
+    const reduced = reduceProgress(running, { id, reduceSec: 1000, now: 10_500 })
+    const it = reduced.dailyPlan.items[0]
+    expect(it.elapsedSec).toBe(0)
+  })
+  it('adds log entry for reduction', () => {
+    const { s, id } = planWithOne()
+    const running = startItem(s, id, 10_000)
+    const reduced = reduceProgress(running, { id, reduceSec: 300, now: 50_000 })
+    expect(reduced.dailyPlan.items[0].logs).toHaveLength(1)
+    expect(reduced.dailyPlan.items[0].logs[0].note).toMatch(/reduced.*5m/i)
   })
 })
 

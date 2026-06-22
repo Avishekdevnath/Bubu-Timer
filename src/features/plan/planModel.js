@@ -180,6 +180,28 @@ export function resumeAfterAway(state, { id, subtractSec, now, note }) {
   }
 }
 
+export function reduceProgress(state, { id, reduceSec, now }) {
+  if (!state.dailyPlan) return state
+  const plan = state.dailyPlan
+  const item = plan.items.find((it) => it.id === id)
+  if (!item || item.status !== 'running') return state
+  const reduceAmount = Math.max(0, reduceSec || 0)
+  const newElapsed = Math.max(0, liveElapsedSec(item, now) - reduceAmount)
+  const reduceMin = Math.floor(reduceAmount / 60)
+  const logNote = `Reduced ${reduceMin}m (distraction)`
+  return {
+    ...state,
+    dailyPlan: {
+      ...plan,
+      items: plan.items.map((it) =>
+        it.id === id
+          ? { ...it, elapsedSec: newElapsed, runStartTs: now, status: 'running', logs: [...it.logs, { ts: now, note: logNote }] }
+          : it
+      ),
+    },
+  }
+}
+
 export function saveFuturePlan(state, { date, items }) {
   return {
     ...state,
