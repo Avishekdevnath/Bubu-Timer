@@ -71,10 +71,12 @@ describe('pauseItem', () => {
     expect(it.logs[0].ts).toBe(70_000)
     expect(paused.dailyPlan.activeItemId).toBeNull()
   })
-  it('rejects empty note', () => {
+  it('accepts empty note and logs without note entry', () => {
     const { s, id } = planWithOne()
     const running = startItem(s, id, 1000)
-    expect(() => pauseItem(running, { note: '   ', now: 2000 })).toThrow(/note required/i)
+    const paused = pauseItem(running, { note: '', now: 2000 })
+    expect(paused.dailyPlan.items[0].status).toBe('paused')
+    expect(paused.dailyPlan.items[0].logs).toHaveLength(0)
   })
   it('throws when nothing running', () => {
     const { s } = planWithOne()

@@ -56,13 +56,13 @@ function freezeActive(state, { note, now, status }) {
   const plan = state.dailyPlan
   const id = plan.activeItemId
   if (!id) throw new Error('Nothing running')
-  if (!note || !note.trim()) throw new Error('Note required')
+  const logNote = note && note.trim() ? note.trim() : null
   const next = mapItem(state, id, (it) => ({
     ...it,
     elapsedSec: liveElapsedSec(it, now),
     runStartTs: null,
     status,
-    logs: [...it.logs, { ts: now, note: note.trim() }],
+    logs: logNote ? [...it.logs, { ts: now, note: logNote }] : it.logs,
   }))
   return { ...next, dailyPlan: { ...next.dailyPlan, activeItemId: null } }
 }
