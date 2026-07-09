@@ -129,7 +129,10 @@ async function sendReminderEmail(fs, reminder) {
     .filter((d) => d.exists)
     .map((d) => ({ uid: d.id, email: d.data()?.email }))
     .filter((r) => r.email)
-  if (recipients.length === 0) return
+  if (recipients.length === 0) {
+    logger.warn('reminder email skipped: no target recipients have an email on file')
+    return
+  }
 
   const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:480px;margin:0 auto;padding:24px">
 <p style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#78716c;margin:0 0 16px">${escapeHtml(EMAIL_FROM_NAME)}</p>
@@ -144,11 +147,20 @@ async function sendReminderEmail(fs, reminder) {
     html,
   }))
 
-  await fetch('https://api.resend.com/emails/batch', {
+  // fetch() only rejects on network failure — a non-2xx Resend response
+  // (bad key, rate limit, validation error) resolves normally and was
+  // previously swallowed by a bare .catch(), so failures sent zero email
+  // with zero trace anywhere. Check res.ok explicitly and log the body.
+  const res = await fetch('https://api.resend.com/emails/batch', {
     method: 'POST',
     headers: { Authorization: `Bearer ${RESEND_API_KEY.value()}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
-  }).catch((err) => logger.error('reminder email send failed', err))
+  })
+  if (!res.ok) {
+    logger.error('reminder email send failed', { status: res.status, body: await res.text() })
+    return
+  }
+  logger.info('reminder email sent', { recipients: recipients.length })
 }
 
 const checkReminders = onSchedule(
@@ -157,18 +169,27 @@ const checkReminders = onSchedule(
     const fs = getFirestore()
     const { dateStr, hour, minute } = dhakaParts(new Date())
     const snap = await fs.collection('reminders').where('active', '==', true).get()
+    logger.info(`checkReminders: ${snap.size} active reminder(s) at ${dateStr} ${hour}:${minute}`)
 
     for (const doc of snap.docs) {
       const reminder = doc.data()
       try {
         if (isExpired(reminder, dateStr)) {
+          logger.info(`reminder ${doc.id} expired (endDate ${reminder.endDate}) — deactivating`)
           await doc.ref.update({ active: false })
           continue
         }
-        if (isNotStarted(reminder, dateStr)) continue
-        if (reminder.lastFiredDate === dateStr) continue
+        if (isNotStarted(reminder, dateStr)) {
+          logger.info(`reminder ${doc.id} not started yet (startDate ${reminder.startDate})`)
+          continue
+        }
+        if (reminder.lastFiredDate === dateStr) {
+          logger.info(`reminder ${doc.id} already fired today (${dateStr})`)
+          continue
+        }
         if (!isDueNow(reminder, hour, minute)) continue
 
+        logger.info(`reminder ${doc.id} due now — sending`)
         await sendReminderPush(fs, reminder, doc.id, dateStr)
         await sendReminderEmail(fs, reminder)
         await doc.ref.update({ lastFiredDate: dateStr })
