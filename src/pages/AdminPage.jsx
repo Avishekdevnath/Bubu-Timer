@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { onValue, ref } from 'firebase/database'
-import { ChevronDown, ChevronUp, RefreshCw, Send, ShieldCheck, ShieldOff, Trash2, RotateCcw } from 'lucide-react'
+import { ChevronDown, ChevronUp, Pencil, Plus, RefreshCw, Send, ShieldCheck, ShieldOff, Trash2, RotateCcw } from 'lucide-react'
 import { AppModal } from '../components/AppModal.jsx'
-import { listUsers, resetUser, deleteUser, setUserDisabled, broadcast } from '../features/admin/adminApi.js'
+import { listUsers, resetUser, deleteUser, setUserDisabled, broadcast, updateUserProfile, createUser } from '../features/admin/adminApi.js'
 import { AdminDashboardTab } from '../features/admin/AdminDashboardTab.jsx'
 import { AdminRoomsTab } from '../features/admin/AdminRoomsTab.jsx'
 import { AdminBroadcastTab } from '../features/admin/AdminBroadcastTab.jsx'
@@ -46,6 +46,14 @@ function UsersTab({ showToast, currentUser }) {
   const [pushTitle, setPushTitle] = useState('')
   const [pushBody, setPushBody] = useState('')
   const [pushing, setPushing] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [createEmail, setCreateEmail] = useState('')
+  const [createPassword, setCreatePassword] = useState('')
+  const [createName, setCreateName] = useState('')
+  const [creating, setCreating] = useState(false)
 
   async function refresh() {
     setBusy(true)
@@ -89,6 +97,44 @@ function UsersTab({ showToast, currentUser }) {
     }
   }
 
+  function toggleExpand(u) {
+    const willExpand = expandedUid !== u.uid
+    setExpandedUid(willExpand ? u.uid : null)
+    if (willExpand) {
+      setEditName(u.displayName || '')
+      setEditEmail(u.email || '')
+    }
+  }
+
+  async function saveProfile(uid) {
+    setSavingProfile(true)
+    try {
+      await updateUserProfile(uid, { displayName: editName.trim(), email: editEmail.trim() })
+      showToast('Profile updated')
+      await refresh()
+    } catch (err) {
+      showToast(`Update failed: ${err.message}`)
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  async function runCreate() {
+    if (!createEmail.trim() || !createPassword.trim()) { showToast('Email and password required'); return }
+    setCreating(true)
+    try {
+      await createUser(createEmail.trim(), createPassword, createName.trim())
+      showToast('User created')
+      setCreateOpen(false)
+      setCreateEmail(''); setCreatePassword(''); setCreateName('')
+      await refresh()
+    } catch (err) {
+      showToast(`Create failed: ${err.message}`)
+    } finally {
+      setCreating(false)
+    }
+  }
+
   async function sendPush(uid) {
     if (!pushTitle.trim() || !pushBody.trim()) { showToast('Title and body required'); return }
     setPushing(true)
@@ -109,10 +155,16 @@ function UsersTab({ showToast, currentUser }) {
     <div>
       <div className="flex justify-between items-center mb-3">
         <p className="text-xs text-stone-400">{users ? `${users.length} accounts` : 'Loading…'}</p>
-        <button onClick={refresh} disabled={busy}
-          className="flex items-center gap-1.5 text-xs font-medium text-stone-500 bg-white border border-stone-200 px-3 py-1.5 rounded-full hover:bg-stone-50 disabled:opacity-50">
-          <RefreshCw size={12} className={busy ? 'animate-spin' : ''} /> Refresh
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setCreateOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-medium text-white bg-stone-900 px-3 py-1.5 rounded-full hover:bg-stone-800">
+            <Plus size={12} /> Create user
+          </button>
+          <button onClick={refresh} disabled={busy}
+            className="flex items-center gap-1.5 text-xs font-medium text-stone-500 bg-white border border-stone-200 px-3 py-1.5 rounded-full hover:bg-stone-50 disabled:opacity-50">
+            <RefreshCw size={12} className={busy ? 'animate-spin' : ''} /> Refresh
+          </button>
+        </div>
       </div>
       <div className="space-y-2">
         {(users || []).map((u) => {
@@ -122,7 +174,7 @@ function UsersTab({ showToast, currentUser }) {
           return (
             <div key={u.uid} className="bg-white border border-stone-100 rounded-2xl shadow-sm p-4">
               <div className="flex items-center justify-between gap-3">
-                <button onClick={() => setExpandedUid(expanded ? null : u.uid)} className="min-w-0 text-left flex-1">
+                <button onClick={() => toggleExpand(u)} className="min-w-0 text-left flex-1">
                   <p className="text-sm font-semibold text-stone-800 truncate flex items-center gap-1.5">
                     {u.displayName || '(no name)'}
                     {u.uid === currentUser?.uid && <span className="text-[10px] font-bold text-emerald-600">YOU</span>}
@@ -159,6 +211,19 @@ function UsersTab({ showToast, currentUser }) {
                         <ShieldOff size={12} /> {u.disabled ? 'Enable account' : 'Disable account'}
                       </button>
                     )}
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-1.5 flex items-center gap-1"><Pencil size={10} /> Edit profile</p>
+                    <div className="space-y-2">
+                      <input className="field-in" placeholder="Display name"
+                        value={editName} onChange={(e) => setEditName(e.target.value)} />
+                      <input className="field-in" placeholder="Email" type="email"
+                        value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+                      <button onClick={() => saveProfile(u.uid)} disabled={savingProfile}
+                        className="w-full py-2.5 bg-white border border-stone-200 text-stone-700 text-sm font-semibold rounded-xl disabled:opacity-40 hover:bg-stone-50">
+                        {savingProfile ? 'Saving…' : 'Save profile'}
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-1.5">Devices</p>
@@ -206,6 +271,23 @@ function UsersTab({ showToast, currentUser }) {
             className={`w-full py-3 mt-2 text-white text-sm font-semibold rounded-xl disabled:opacity-40 ${confirm.kind === 'disable' && confirm.user.disabled ? 'bg-emerald-600' : 'bg-red-600'}`}>
             {confirm.kind === 'reset' ? 'Reset state' : confirm.kind === 'delete' ? 'Delete forever' : (confirm.user.disabled ? 'Enable' : 'Disable')}
           </button>
+        </AppModal>
+      )}
+
+      {createOpen && (
+        <AppModal title="Create user" onClose={() => setCreateOpen(false)}>
+          <div className="space-y-2">
+            <input className="field-in" placeholder="Email" type="email"
+              value={createEmail} onChange={(e) => setCreateEmail(e.target.value)} />
+            <input className="field-in" placeholder="Password (min 6 chars)" type="password"
+              value={createPassword} onChange={(e) => setCreatePassword(e.target.value)} />
+            <input className="field-in" placeholder="Display name"
+              value={createName} onChange={(e) => setCreateName(e.target.value)} />
+            <button onClick={runCreate} disabled={creating}
+              className="w-full py-3 mt-1 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40">
+              {creating ? 'Creating…' : 'Create account'}
+            </button>
+          </div>
         </AppModal>
       )}
     </div>
