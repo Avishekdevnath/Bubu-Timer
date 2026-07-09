@@ -1,14 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Route, Routes, useNavigate } from 'react-router-dom'
 import { onValue, ref } from 'firebase/database'
-import { ChevronDown, ChevronUp, Pencil, Plus, RefreshCw, Send, ShieldCheck, ShieldOff, Trash2, RotateCcw } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronUp, Copy, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, ShieldOff, Trash2, RotateCcw } from 'lucide-react'
 import { AppModal } from '../components/AppModal.jsx'
 import { listUsers, resetUser, deleteUser, setUserDisabled, broadcast, updateUserProfile, createUser } from '../features/admin/adminApi.js'
+import { filterUsers, sortUsers } from '../features/admin/userStats.js'
 import { AdminDashboardTab } from '../features/admin/AdminDashboardTab.jsx'
 import { AdminRoomsTab } from '../features/admin/AdminRoomsTab.jsx'
 import { AdminBroadcastTab } from '../features/admin/AdminBroadcastTab.jsx'
 import { AdminLogsTab } from '../features/admin/AdminLogsTab.jsx'
 import { database } from '../lib/firebase.js'
+
+const SORT_OPTIONS = [
+  { key: 'name', label: 'Name' },
+  { key: 'lastSignIn', label: 'Last sign-in' },
+  { key: 'subjects', label: 'Subjects' },
+  { key: 'devices', label: 'Devices' },
+]
 
 const TABS = [
   { label: 'dashboard', path: '' },
@@ -65,6 +73,9 @@ function UsersTab({ showToast, currentUser }) {
   const [createPassword, setCreatePassword] = useState('')
   const [createName, setCreateName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [search, setSearch] = useState('')
+  const [sortKey, setSortKey] = useState('name')
+  const [sortDir, setSortDir] = useState('asc')
 
   async function refresh() {
     setBusy(true)
@@ -161,24 +172,44 @@ function UsersTab({ showToast, currentUser }) {
   }
 
   const deleteArmed = confirm?.kind !== 'delete' || confirmText === confirm.user.email
+  const visibleUsers = useMemo(() => {
+    const filtered = filterUsers(users || [], search)
+    return sortUsers(filtered, sortKey, sortDir)
+  }, [users, search, sortKey, sortDir])
 
   return (
     <div>
       <div className="flex justify-between items-center mb-3">
-        <p className="text-xs text-stone-400">{users ? `${users.length} accounts` : 'Loading…'}</p>
+        <p className="text-xs text-stone-400">{users ? `${visibleUsers.length}/${users.length} accounts` : 'Loading…'}</p>
         <div className="flex gap-2">
           <button onClick={() => setCreateOpen(true)}
             className="flex items-center gap-1.5 text-xs font-medium text-white bg-stone-900 px-3 py-1.5 rounded-full hover:bg-stone-800">
             <Plus size={12} /> Create user
           </button>
-          <button onClick={refresh} disabled={busy}
+          <button onClick={refresh} disabled={busy} aria-label="Refresh user list"
             className="flex items-center gap-1.5 text-xs font-medium text-stone-500 bg-white border border-stone-200 px-3 py-1.5 rounded-full hover:bg-stone-50 disabled:opacity-50">
             <RefreshCw size={12} className={busy ? 'animate-spin' : ''} /> Refresh
           </button>
         </div>
       </div>
+      <div className="flex items-center gap-2 mb-3">
+        <div className="relative flex-1">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-300" />
+          <input className="field-in pl-8" placeholder="Search by name or email"
+            value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+        <select value={sortKey} onChange={(e) => setSortKey(e.target.value)}
+          className="field-in w-auto text-xs" aria-label="Sort users by">
+          {SORT_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
+        <button onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+          aria-label={sortDir === 'asc' ? 'Sort ascending' : 'Sort descending'}
+          className="p-2.5 rounded-xl border border-stone-200 text-stone-500 hover:bg-stone-50 shrink-0">
+          {sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+        </button>
+      </div>
       <div className="space-y-2">
-        {(users || []).map((u) => {
+        {(visibleUsers || []).map((u) => {
           const expanded = expandedUid === u.uid
           const activeRoom = activeRoomFor(u.uid)
           const devices = Object.entries(u.fcmTokens || {})
