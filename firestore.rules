@@ -32,5 +32,9 @@ service cloud.firestore {
       // Written only by adminSendEmail Cloud Function (Admin SDK bypasses rules)
       allow write: if false;
     }
+
+    match /reminders/{id} {
+      allow read, write: if isAdmin();
+    }
   }
 }
