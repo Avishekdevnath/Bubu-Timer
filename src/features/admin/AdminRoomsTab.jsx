@@ -136,6 +136,14 @@ export function AdminRoomsTab({ showToast }) {
                 <p className="text-xs text-stone-400">
                   Created {created ? new Date(created).toLocaleString() : '—'} · Last active {lastActive ? new Date(lastActive).toLocaleString() : '—'}
                 </p>
+                <div className="flex gap-3">
+                  {['A', 'B'].map((slot) => room?.[slot] && (
+                    <span key={slot} className="flex items-center gap-1.5 text-xs text-stone-500">
+                      <span className={`w-1.5 h-1.5 rounded-full ${room[slot].online ? 'bg-emerald-500' : 'bg-stone-300'}`} />
+                      {room[slot].name || slot} · {room[slot].online ? 'online' : 'offline'}
+                    </span>
+                  ))}
+                </div>
                 <div className="flex gap-2">
                   {['A', 'B'].map((slot) => room?.[slot] && (
                     <button key={slot} onClick={() => setConfirm({ kind: 'kick', code, slot })}
