@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { NavLink, Route, Routes, useNavigate } from 'react-router-dom'
 import { onValue, ref } from 'firebase/database'
 import { ChevronDown, ChevronUp, Pencil, Plus, RefreshCw, Send, ShieldCheck, ShieldOff, Trash2, RotateCcw } from 'lucide-react'
 import { AppModal } from '../components/AppModal.jsx'
@@ -9,10 +10,16 @@ import { AdminBroadcastTab } from '../features/admin/AdminBroadcastTab.jsx'
 import { AdminLogsTab } from '../features/admin/AdminLogsTab.jsx'
 import { database } from '../lib/firebase.js'
 
-const TABS = ['dashboard', 'users', 'rooms', 'broadcast', 'logs']
+const TABS = [
+  { label: 'dashboard', path: '' },
+  { label: 'users', path: 'users' },
+  { label: 'rooms', path: 'rooms' },
+  { label: 'broadcast', path: 'broadcast' },
+  { label: 'logs', path: 'logs' },
+]
 
 export function AdminPage({ showToast, currentUser }) {
-  const [tab, setTab] = useState('dashboard')
+  const navigate = useNavigate()
   return (
     <div className="w-full px-4 md:px-6 pt-6">
       <div className="flex items-center gap-2 mb-4">
@@ -20,18 +27,22 @@ export function AdminPage({ showToast, currentUser }) {
         <h2 className="text-2xl font-light tracking-tight text-stone-800">Admin</h2>
       </div>
       <div className="flex gap-2 mb-5 flex-wrap">
-        {TABS.map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-full text-sm font-semibold capitalize transition-colors ${tab === t ? 'bg-stone-900 text-white' : 'bg-white border border-stone-200 text-stone-500 hover:bg-stone-50'}`}>
-            {t}
-          </button>
+        {TABS.map(({ label, path }) => (
+          <NavLink key={label} to={path} end={path === ''}
+            className={({ isActive }) =>
+              `px-4 py-2 rounded-full text-sm font-semibold capitalize transition-colors ${isActive ? 'bg-stone-900 text-white' : 'bg-white border border-stone-200 text-stone-500 hover:bg-stone-50'}`
+            }>
+            {label}
+          </NavLink>
         ))}
       </div>
-      {tab === 'dashboard' && <AdminDashboardTab showToast={showToast} onOpenLogs={() => setTab('logs')} />}
-      {tab === 'users' && <UsersTab showToast={showToast} currentUser={currentUser} />}
-      {tab === 'rooms' && <AdminRoomsTab showToast={showToast} />}
-      {tab === 'broadcast' && <AdminBroadcastTab showToast={showToast} />}
-      {tab === 'logs' && <AdminLogsTab />}
+      <Routes>
+        <Route index element={<AdminDashboardTab showToast={showToast} onOpenLogs={() => navigate('/admin/logs')} />} />
+        <Route path="users" element={<UsersTab showToast={showToast} currentUser={currentUser} />} />
+        <Route path="rooms" element={<AdminRoomsTab showToast={showToast} />} />
+        <Route path="broadcast" element={<AdminBroadcastTab showToast={showToast} />} />
+        <Route path="logs" element={<AdminLogsTab />} />
+      </Routes>
     </div>
   )
 }

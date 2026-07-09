@@ -727,7 +727,7 @@ function App() {
             <Route path="/buddy/pins" element={<PinnedPage room={room} navigate={navigate} />} />
             <Route path="/buddy/starred" element={<StarredPage room={room} navigate={navigate} />} />
             <Route path="/buddy/checklists" element={<ChecklistsPage room={room} navigate={navigate} />} />
-            <Route path="/admin" element={
+            <Route path="/admin/*" element={
               authLoading ? null : (currentUser && !currentUser.isGuest
                 ? (isAdmin ? <AdminPage showToast={showToast} currentUser={currentUser} /> : <Navigate to="/home" replace />)
                 : <Navigate to="/home" replace />)
