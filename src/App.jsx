@@ -716,6 +716,14 @@ function App() {
         {/* Screen content */}
         <main className={`flex-1 overflow-x-hidden ${location.pathname === '/buddy' ? 'overflow-hidden' : 'overflow-y-auto pb-20 md:pb-6'}`}>
           <ErrorBoundary>
+          {authLoading ? (
+            <div className="flex items-center justify-center h-full min-h-[60vh]">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-8 h-8 rounded-full border-2 border-stone-300 border-t-stone-700 animate-spin" />
+                <p className="text-xs text-stone-400">Loading…</p>
+              </div>
+            </div>
+          ) : (
           <Suspense fallback={<div className="flex items-center justify-center h-32"><div className="w-6 h-6 rounded-full border-2 border-stone-300 border-t-stone-700 animate-spin" /></div>}>
           <Routes>
             <Route path="/home" element={<HomePage currentUser={currentUser} showToast={showToast} />} />
@@ -751,18 +759,19 @@ function App() {
             <Route path="/buddy/starred" element={<StarredPage room={room} navigate={navigate} />} />
             <Route path="/buddy/checklists" element={<ChecklistsPage room={room} navigate={navigate} />} />
             <Route path="/admin/*" element={
-              authLoading ? null : (currentUser && !currentUser.isGuest
+              currentUser && !currentUser.isGuest
                 ? (isAdmin ? <AdminPage showToast={showToast} currentUser={currentUser} /> : <Navigate to="/home" replace />)
-                : <Navigate to="/home" replace />)
+                : <Navigate to="/home" replace />
             } />
             <Route path="/notifications" element={
-              authLoading ? null : (currentUser && !currentUser.isGuest
+              currentUser && !currentUser.isGuest
                 ? <NotificationsPage notifData={notifData} />
-                : <Navigate to="/home" replace />)
+                : <Navigate to="/home" replace />
             } />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
           </Suspense>
+          )}
           </ErrorBoundary>
         </main>
       </div>
