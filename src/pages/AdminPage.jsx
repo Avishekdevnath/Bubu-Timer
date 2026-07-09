@@ -10,6 +10,7 @@ import { filterUsers, sortUsers, usersToCsv } from '../features/admin/userStats.
 import { AdminDashboardTab } from '../features/admin/AdminDashboardTab.jsx'
 import { AdminRoomsTab } from '../features/admin/AdminRoomsTab.jsx'
 import { AdminBroadcastTab } from '../features/admin/AdminBroadcastTab.jsx'
+import { AdminEmailTab } from '../features/admin/AdminEmailTab.jsx'
 import { AdminLogsTab } from '../features/admin/AdminLogsTab.jsx'
 import { database } from '../lib/firebase.js'
 
@@ -25,6 +26,7 @@ const TABS = [
   { label: 'users', path: '/admin/users' },
   { label: 'rooms', path: '/admin/rooms' },
   { label: 'broadcast', path: '/admin/broadcast' },
+  { label: 'email', path: '/admin/email' },
   { label: 'logs', path: '/admin/logs' },
 ]
 
@@ -51,6 +53,7 @@ export function AdminPage({ showToast, currentUser }) {
         <Route path="users" element={<UsersTab showToast={showToast} currentUser={currentUser} />} />
         <Route path="rooms" element={<AdminRoomsTab showToast={showToast} />} />
         <Route path="broadcast" element={<AdminBroadcastTab showToast={showToast} />} />
+        <Route path="email" element={<AdminEmailTab showToast={showToast} />} />
         <Route path="logs" element={<AdminLogsTab currentUser={currentUser} />} />
       </Routes>
     </div>
