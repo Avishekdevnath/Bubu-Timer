@@ -12,7 +12,12 @@ function requireString(value, name, maxLen) {
 function validateBroadcast(data) {
   const title = requireString(data?.title, 'title', 100)
   const body = requireString(data?.body, 'body', 500)
-  return { title, body }
+  let url = '/home'
+  if (data?.url != null && String(data.url).trim() !== '') {
+    url = requireString(data.url, 'url', 200)
+    if (!url.startsWith('/')) throw new Error('url must start with /')
+  }
+  return { title, body, url }
 }
 
 module.exports = { requireString, validateBroadcast }

@@ -19,7 +19,7 @@ test('requireString rejects over-length', () => {
 test('validateBroadcast trims and returns title/body', () => {
   assert.deepStrictEqual(
     validateBroadcast({ title: ' Hi ', body: ' There ' }),
-    { title: 'Hi', body: 'There' },
+    { title: 'Hi', body: 'There', url: '/home' },
   )
 })
 
@@ -27,4 +27,18 @@ test('validateBroadcast enforces limits', () => {
   assert.throws(() => validateBroadcast({ title: 'x'.repeat(101), body: 'ok' }), /title too long/)
   assert.throws(() => validateBroadcast({ title: 'ok', body: 'x'.repeat(501) }), /body too long/)
   assert.throws(() => validateBroadcast({ title: '', body: 'ok' }), /title must be a non-empty string/)
+})
+
+test('validateBroadcast defaults url to /home', () => {
+  assert.strictEqual(validateBroadcast({ title: 'a', body: 'b' }).url, '/home')
+  assert.strictEqual(validateBroadcast({ title: 'a', body: 'b', url: '' }).url, '/home')
+})
+
+test('validateBroadcast accepts and trims a route url', () => {
+  assert.strictEqual(validateBroadcast({ title: 'a', body: 'b', url: ' /buddy ' }).url, '/buddy')
+})
+
+test('validateBroadcast rejects bad urls', () => {
+  assert.throws(() => validateBroadcast({ title: 'a', body: 'b', url: 'https://evil.com' }), /url must start with \//)
+  assert.throws(() => validateBroadcast({ title: 'a', body: 'b', url: '/' + 'x'.repeat(200) }), /url too long/)
 })
