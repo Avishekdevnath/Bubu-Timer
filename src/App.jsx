@@ -48,6 +48,8 @@ import { ConfirmReset } from './components/ConfirmReset.jsx'
 import { AwayModal } from './components/AwayModal.jsx'
 import { MinutesPicker } from './components/MinutesPicker.jsx'
 import { AnnouncementBanner } from './components/AnnouncementBanner.jsx'
+import { NotificationBell } from './components/NotificationBell.jsx'
+import { useNotifications } from './features/notifications/useNotifications.js'
 
 const tabs = [
   { label: 'Home', path: '/home', icon: Home },
@@ -173,6 +175,7 @@ function App() {
   }
 
   const room = usePartnerRoom({ currentUser, appState, showToast, playChatPing })
+  const notifData = useNotifications(currentUser)
 
   function addLog(message, type = '') {
     const time = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Dhaka', hour: 'numeric', minute: '2-digit', hour12: true })
@@ -672,6 +675,7 @@ function App() {
           <div className="md:hidden text-lg font-semibold tracking-tight">Bubu Timer</div>
           <div className="flex-1 md:flex-none" />
           <div className="flex items-center gap-3">
+            {currentUser && !currentUser.isGuest && <NotificationBell unread={notifData.unread} />}
             <div className="text-xs font-medium text-stone-500 bg-white border border-stone-200 px-3 py-1.5 rounded-full shadow-sm">
               {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
