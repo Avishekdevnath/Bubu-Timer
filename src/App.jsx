@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import {
+  Bell,
   Home,
   MessageCircle,
   Settings,
@@ -640,6 +641,28 @@ function App() {
               )}
             </NavLink>
           ))}
+          {currentUser && !currentUser.isGuest && (
+            <NavLink to="/notifications"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all w-full ${
+                  isActive ? 'bg-stone-100 text-stone-900' : 'text-stone-500 hover:bg-stone-50 hover:text-stone-800'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-3">
+                    <Bell size={18} strokeWidth={isActive ? 2.5 : 1.5} />Notifications
+                  </div>
+                  {notifData.unread > 0 && !isActive && (
+                    <span className="min-w-[18px] h-[18px] bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center px-1">
+                      {notifData.unread > 99 ? '99+' : notifData.unread}
+                    </span>
+                  )}
+                </div>
+              )}
+            </NavLink>
+          )}
           {isAdmin && (
             <NavLink to="/admin"
               className={({ isActive }) =>
