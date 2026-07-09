@@ -21,11 +21,11 @@ const SORT_OPTIONS = [
 ]
 
 const TABS = [
-  { label: 'dashboard', path: '' },
-  { label: 'users', path: 'users' },
-  { label: 'rooms', path: 'rooms' },
-  { label: 'broadcast', path: 'broadcast' },
-  { label: 'logs', path: 'logs' },
+  { label: 'dashboard', path: '/admin' },
+  { label: 'users', path: '/admin/users' },
+  { label: 'rooms', path: '/admin/rooms' },
+  { label: 'broadcast', path: '/admin/broadcast' },
+  { label: 'logs', path: '/admin/logs' },
 ]
 
 export function AdminPage({ showToast, currentUser }) {
@@ -38,7 +38,7 @@ export function AdminPage({ showToast, currentUser }) {
       </div>
       <div className="flex gap-2 mb-5 flex-wrap">
         {TABS.map(({ label, path }) => (
-          <NavLink key={label} to={path} end={path === ''}
+          <NavLink key={label} to={path} end={path === '/admin'}
             className={({ isActive }) =>
               `px-4 py-2 rounded-full text-sm font-semibold capitalize transition-colors ${isActive ? 'bg-stone-900 text-white' : 'bg-white border border-stone-200 text-stone-500 hover:bg-stone-50'}`
             }>
