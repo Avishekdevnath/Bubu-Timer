@@ -18,6 +18,10 @@ describe('visibleNotifs', () => {
   it('handles undefined state', () => {
     expect(visibleNotifs([n('a')], undefined, 'u1')).toHaveLength(1)
   })
+  it('filters array toUid (multi-user targeting) to members only', () => {
+    const list = [n('a'), n('b', { toUid: ['u1', 'u3'] }), n('c', { toUid: ['u2', 'u3'] })]
+    expect(visibleNotifs(list, {}, 'u1').map((x) => x.id)).toEqual(['a', 'b'])
+  })
 })
 
 describe('unreadCount', () => {

@@ -1,8 +1,12 @@
+function targetsMe(toUid, myUid) {
+  if (toUid == null) return true
+  if (Array.isArray(toUid)) return toUid.includes(myUid)
+  return toUid === myUid
+}
+
 export function visibleNotifs(notifs, state, myUid) {
   const deleted = state?.deleted || {}
-  return (notifs || []).filter(
-    (n) => (n.toUid == null || n.toUid === myUid) && !deleted[n.id],
-  )
+  return (notifs || []).filter((n) => targetsMe(n.toUid, myUid) && !deleted[n.id])
 }
 
 export function unreadCount(notifs, state, myUid) {
