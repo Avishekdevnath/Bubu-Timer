@@ -15,6 +15,7 @@ export function loadStoredState() {
       dayCutoff: typeof saved.dayCutoff === 'number' ? saved.dayCutoff : DEFAULT_CUTOFF_MIN,
       dailyPlan: saved.version === STATE_VERSION && saved.dailyPlan ? saved.dailyPlan : null,
       planHistory: saved.version === STATE_VERSION && Array.isArray(saved.planHistory) ? saved.planHistory : [],
+      futurePlans: saved.futurePlans && typeof saved.futurePlans === 'object' ? saved.futurePlans : {},
     }
   } catch {
     return createDefaultState()

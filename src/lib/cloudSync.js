@@ -1,41 +1,36 @@
 /**
- * cloudSync.js — Firestore mirror of app state for cross-device sync.
+ * cloudSync.js — Firestore as source of truth, localStorage as offline cache.
  *
- * Strategy: last-write-wins by wall-clock timestamp.
+ * subscribeCloudState(uid, { onData, onEmpty })
+ *   Real-time listener via onSnapshot. Fires immediately on mount, then on
+ *   every remote change. Returns an unsubscribe function.
+ *   - onData(cloud)  called when Firestore doc exists with state
+ *   - onEmpty()      called when doc missing — caller should seed it
  *
- *   pullCloudState(uid)
- *     -> { state, updatedAtMs } | null
- *     Caller compares to localStorage `savedAt` to decide which to keep.
+ * queueCloudPush(uid, state)
+ *   Debounced write (500ms). Coalesces rapid saves. All meaningful actions
+ *   (plan create/start/pause/done/archive) call this via patchState.
  *
- *   queueCloudPush(uid, state)
- *     Debounced — coalesces rapid-fire saves into one Firestore write every
- *     PUSH_DEBOUNCE_MS. Most timer ticks call patchState; without throttling
- *     this would burn through Firestore writes for nothing.
+ * flushCloudPushNow()
+ *   Flush pending push immediately — call on visibilitychange/beforeunload.
  *
- *   flushCloudPushNow()
- *     Fire any pending push immediately. Call from visibilitychange/beforeunload
- *     so we don't drop the latest state when the tab leaves.
- *
- * Doc shape:
- *   users/{uid}
- *     state: { ...stripped state, no logs, no live timer fields... }
- *     stateUpdatedAt: serverTimestamp
- *     stateUpdatedAtMs: Date.now()      // used for client-side LWW compare
+ * Doc shape:  users/{uid}
+ *   state: { subjects, planHistory, dailyPlan, futurePlans, ... }
+ *   stateUpdatedAt: serverTimestamp
+ *   stateUpdatedAtMs: Date.now()
  */
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
+import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore'
 import { firestore } from './firebase.js'
 
-const PUSH_DEBOUNCE_MS = 1500
+const PUSH_DEBOUNCE_MS = 500
 
-// Persisted fields. Runtime/timer fields are deliberately excluded — they
-// describe device-local state (which tab is ticking right now) and would
-// cause cross-device flapping if mirrored.
-const SYNCED_FIELDS = [
+export const SYNCED_FIELDS = [
   'subjects',
   'subjectProgress',
   'chapterProgress',
   'dailyPlan',
   'planHistory',
+  'futurePlans',
   'dayCutoff',
 ]
 
@@ -50,21 +45,24 @@ export function buildSyncableState(state) {
   return out
 }
 
-export async function pullCloudState(uid) {
-  if (!uid) return null
-  try {
-    const snap = await getDoc(doc(firestore, 'users', uid))
-    if (!snap.exists()) return null
-    const data = snap.data()
-    if (!data?.state) return null
-    return {
-      state: data.state,
-      updatedAtMs: data.stateUpdatedAtMs || data.stateUpdatedAt?.toMillis?.() || 0,
-    }
-  } catch (error) {
-    console.warn('pullCloudState failed', error)
-    return null
-  }
+export function subscribeCloudState(uid, { onData, onEmpty } = {}) {
+  if (!uid) return () => {}
+  const docRef = doc(firestore, 'users', uid)
+  return onSnapshot(
+    docRef,
+    { includeMetadataChanges: false },
+    (snap) => {
+      if (!snap.exists() || !snap.data()?.state) {
+        onEmpty?.()
+        return
+      }
+      const data = snap.data()
+      onData?.({ state: data.state, updatedAtMs: data.stateUpdatedAtMs || 0 })
+    },
+    (error) => {
+      console.warn('subscribeCloudState error', error)
+    },
+  )
 }
 
 export function queueCloudPush(uid, state) {
@@ -100,11 +98,6 @@ export async function flushCloudPushNow() {
   await flushPush()
 }
 
-/**
- * Merge cloud state into an existing local default state object.
- * Only overrides keys present in the cloud payload — leaves device-local
- * fields (mode, timeLeft, endTs, …) untouched.
- */
 export function mergeCloudIntoLocal(localState, cloudPayload) {
   if (!cloudPayload?.state) return localState
   const next = { ...localState }

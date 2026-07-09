@@ -93,3 +93,12 @@ exports.onChatMessage = onValueCreated(
 // Export voice message cleanup functions
 exports.deleteExpiredVoiceMessages = voiceCleanup.deleteExpiredVoiceMessages
 exports.cleanupExpiredVoiceMessagesHttp = voiceCleanup.cleanupExpiredVoiceMessagesHttp
+
+// Admin callables (custom-claim gated)
+const adminFns = require('./admin.js')
+exports.adminListUsers = adminFns.adminListUsers
+exports.adminResetUser = adminFns.adminResetUser
+exports.adminDeleteUser = adminFns.adminDeleteUser
+exports.adminCloseRoom = adminFns.adminCloseRoom
+exports.adminClearChat = adminFns.adminClearChat
+exports.adminBroadcast = adminFns.adminBroadcast

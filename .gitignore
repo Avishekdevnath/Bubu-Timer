@@ -43,3 +43,8 @@ coverage/
 # Native projects (regenerated via cap sync)
 android/
 ios/
+
+# service account keys — never commit
+*service-account*.json
+serviceAccountKey.json
+/hide/

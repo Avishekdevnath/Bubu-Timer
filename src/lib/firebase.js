@@ -4,6 +4,7 @@ import { getDatabase } from 'firebase/database'
 import { initializeFirestore, persistentLocalCache } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 import { getMessaging, isSupported } from 'firebase/messaging'
+import { getFunctions } from 'firebase/functions'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyChyw7KIkkDs2jNpSXW2pauhE37_GGmOw4',
@@ -22,6 +23,7 @@ export const auth = getAuth(firebaseApp)
 export const database = getDatabase(firebaseApp)
 export const firestore = initializeFirestore(firebaseApp, { localCache: persistentLocalCache() })
 export const storage = getStorage(firebaseApp)
+export const functions = getFunctions(firebaseApp, 'asia-southeast1')
 
 export const VAPID_KEY = 'BDjYgKlK6Kah2Q7eWfQXHvZTlt_at0429Z6iL6vukvtE2gJUVYqbwnCMPH5nfxozsoAxYu0Yrll0t9XspgcAIMc'
 

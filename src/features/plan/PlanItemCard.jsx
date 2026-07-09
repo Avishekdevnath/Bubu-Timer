@@ -29,7 +29,7 @@ const STATUS = {
   done:    { label: 'Done',    cls: 'bg-stone-800 text-white' },
 }
 
-export function PlanItemCard({ item, now, onStart, onPause, onDone, onEdit, readOnly, onRemove, activeItemId }) {
+export function PlanItemCard({ item, now, onStart, onPause, onDone, onEdit, onReduce, readOnly, onRemove, activeItemId }) {
   const [expanded, setExpanded] = useState(false)
   const [editing, setEditing]   = useState(false)
   const [editMinutes, setEditMinutes] = useState(Math.round((item.targetSec || 1800) / 60))
@@ -184,6 +184,11 @@ export function PlanItemCard({ item, now, onStart, onPause, onDone, onEdit, read
         <div className="px-4 pb-3 pt-1 flex gap-2">
           {isRunning ? (
             <>
+              {onReduce && (
+                <button onClick={onReduce} className="flex-1 py-2.5 rounded-xl border border-red-200 text-red-500 text-xs font-semibold hover:bg-red-50">
+                  ↓ Reduce
+                </button>
+              )}
               <button onClick={onPause} className="flex-1 py-2.5 rounded-xl bg-stone-900 text-white text-xs font-semibold">
                 Pause &amp; Log
               </button>

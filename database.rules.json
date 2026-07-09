@@ -1,0 +1,11 @@
+{
+  "rules": {
+    ".read": "auth != null && auth.token.admin === true",
+    "rooms": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}

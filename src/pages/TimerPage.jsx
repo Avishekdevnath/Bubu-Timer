@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { CalendarDays } from 'lucide-react'
+import { CalendarDays, List, ChevronLeft, Clock, CheckCircle2, Circle, Hourglass } from 'lucide-react'
 import { PlanItemCard } from '../features/plan/PlanItemCard.jsx'
 import { PlanBuilder } from '../features/plan/PlanBuilder.jsx'
 import { DurationControl } from '../features/plan/DurationControl.jsx'
@@ -18,7 +18,7 @@ function offsetDate(dateStr, days) {
   return `${y}-${m}-${day}`
 }
 
-function DateBadge({ selected, today, onChange }) {
+function DateBadge({ selected, today, onChange, noContainer }) {
   const inputRef = useRef(null)
   const d = new Date(`${selected}T00:00:00`)
   const label = d.toLocaleDateString([], { month: 'short', day: 'numeric' })
@@ -28,8 +28,8 @@ function DateBadge({ selected, today, onChange }) {
     else inputRef.current?.click()
   }
 
-  return (
-    <div className="flex justify-end mb-3">
+  const btn = (
+    <>
       <button
         onClick={open}
         className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-full shadow-sm text-xs font-semibold text-stone-600 active:bg-stone-50"
@@ -46,20 +46,24 @@ function DateBadge({ selected, today, onChange }) {
         onChange={(e) => e.target.value && onChange(e.target.value)}
         className="sr-only"
       />
-    </div>
+    </>
   )
+
+  if (noContainer) return btn
+  return <div className="flex justify-end mb-3">{btn}</div>
 }
 
 export function TimerPage({
-  appState, room,
-  onStartItem, onPause, onDone, onEndDay, onCreatePlan, onAddSubject, onRemoveItem, onEditItem,
-  onSaveFuturePlan, onDeleteFuturePlan,
-  navigate,
-}) {
+   appState, room,
+   onStartItem, onPause, onDone, onEndDay, onCreatePlan, onAddSubject, onRemoveItem, onEditItem, onReduce,
+   onSaveFuturePlan, onDeleteFuturePlan,
+   navigate,
+ }) {
   const today = todayStr()
   const [selectedDate, setSelectedDate] = useState(today)
   const [view, setView] = useState('mine')
   const [building, setBuilding] = useState(false)
+  const [showLog, setShowLog] = useState(false)
   const [partnerHistoryPlan, setPartnerHistoryPlan] = useState(null)
   const [partnerHistoryLoading, setPartnerHistoryLoading] = useState(false)
   // eslint-disable-next-line react-hooks/purity
@@ -92,9 +96,37 @@ export function TimerPage({
     ? (appState.futurePlans || {})[selectedDate]
     : null
 
+  function openLogEntry(date) {
+    setSelectedDate(date)
+    setBuilding(false)
+    setShowLog(false)
+  }
+
+  if (showLog) {
+    return (
+      <PlanLog
+        today={today}
+        dailyPlan={appState.dailyPlan}
+        planHistory={appState.planHistory || []}
+        futurePlans={appState.futurePlans || {}}
+        onSelect={openLogEntry}
+        onBack={() => setShowLog(false)}
+      />
+    )
+  }
+
   return (
     <div className="w-full px-4 md:px-6 pt-4 pb-4">
-      <DateBadge selected={selectedDate} today={today} onChange={(d) => { setSelectedDate(d); setBuilding(false) }} />
+      <div className="flex items-center justify-between mb-3">
+        <button
+          onClick={() => setShowLog(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-full shadow-sm text-xs font-semibold text-stone-600 active:bg-stone-50"
+        >
+          <List size={12} className="text-stone-400" />
+          Plan Log
+        </button>
+        <DateBadge selected={selectedDate} today={today} onChange={(d) => { setSelectedDate(d); setBuilding(false) }} noContainer />
+      </div>
 
       {/* Toggle always visible */}
       <div className="flex bg-stone-100 rounded-full p-1 mb-5 max-w-xs mx-auto">
@@ -128,9 +160,10 @@ export function TimerPage({
             <button onClick={() => setBuilding(true)} className="px-6 py-3 bg-stone-900 text-white rounded-2xl text-sm font-semibold">Build Today&apos;s Plan</button>
           </div>
         ) : (
-          <MyPlan plan={plan} now={now} subjects={appState.subjects}
-            onStartItem={onStartItem} onPause={onPause} onDone={onDone} onEndDay={onEndDay}
-            onAddSubject={onAddSubject} onRemoveItem={onRemoveItem} onEditItem={onEditItem} />
+<MyPlan plan={plan} now={now} subjects={appState.subjects}
+             onStartItem={onStartItem} onPause={onPause} onDone={onDone} onEndDay={onEndDay}
+             onAddSubject={onAddSubject} onRemoveItem={onRemoveItem} onEditItem={onEditItem}
+             onReduce={onReduce} />
         )
       ) : isPast ? (
         <PastDayView plan={historicPlan} date={selectedDate} now={now} />
@@ -149,7 +182,7 @@ export function TimerPage({
 
 /* ── Today: active plan ─────────────────────────────────────────────────── */
 
-function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, onAddSubject, onRemoveItem, onEditItem }) {
+function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, onAddSubject, onRemoveItem, onEditItem, onReduce }) {
   const [addOpen, setAddOpen] = useState(false)
 
   function firstAvailableId() {
@@ -189,17 +222,18 @@ function MyPlan({ plan, now, subjects, onStartItem, onPause, onDone, onEndDay, o
         <span className="text-base font-bold tabular-nums text-stone-400">{fmtHM(totalTargetSec)}</span>
       </div>
 
-      {plan.items.map((it) => (
-        <PlanItemCard
-          key={it.id} item={it} now={now}
-          onStart={() => onStartItem(it.id)}
-          onPause={onPause}
-          onDone={onDone}
-          onRemove={onRemoveItem}
-          onEdit={onEditItem}
-          activeItemId={plan.activeItemId}
-        />
-      ))}
+{plan.items.map((it) => (
+         <PlanItemCard
+           key={it.id} item={it} now={now}
+           onStart={() => onStartItem(it.id)}
+           onPause={onPause}
+           onDone={onDone}
+           onReduce={onReduce ? () => onReduce(it.id, liveElapsedSec(it, now)) : null}
+           onRemove={onRemoveItem}
+           onEdit={onEditItem}
+           activeItemId={plan.activeItemId}
+         />
+       ))}
 
       {addOpen ? (
         <div className="bg-white border border-stone-100 rounded-2xl p-4 shadow-sm space-y-2">
@@ -361,6 +395,122 @@ function PartnerPlan({ plan, now, connected, partnerName, isHistory, date }) {
       </div>
       {plan.items.map((it) => <PlanItemCard key={it.id} item={it} now={now} readOnly />)}
       {plan.endNote ? <p className="text-sm text-stone-500 bg-stone-50 rounded-xl p-3">🌙 {plan.endNote}</p> : null}
+    </div>
+  )
+}
+
+/* ── Plan Log ───────────────────────────────────────────────────────────── */
+
+function fmtHM(sec) {
+  const m = Math.floor(sec / 60)
+  const h = Math.floor(m / 60)
+  const mm = m % 60
+  return h > 0 ? `${h}h ${mm}m` : `${mm}m`
+}
+
+function fmtDate(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00`)
+  return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+function PlanLog({ today, dailyPlan, planHistory, futurePlans, onSelect, onBack }) {
+  const futureEntries = Object.values(futurePlans)
+    .sort((a, b) => a.date < b.date ? -1 : 1)
+
+  const pastEntries = [...planHistory].sort((a, b) => a.date < b.date ? 1 : -1)
+
+  return (
+    <div className="w-full px-4 md:px-6 pt-4 pb-4">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-5">
+        <button onClick={onBack} className="p-1.5 rounded-full hover:bg-stone-100 text-stone-500">
+          <ChevronLeft size={18} />
+        </button>
+        <h2 className="text-base font-bold text-stone-800">Plan Log</h2>
+      </div>
+
+      <div className="space-y-6">
+        {/* Future plans */}
+        {futureEntries.length > 0 && (
+          <section>
+            <p className="text-xs font-bold tracking-widest text-stone-400 uppercase px-1 mb-2">Upcoming</p>
+            <div className="space-y-2">
+              {futureEntries.map((fp) => {
+                const totalMin = fp.items.reduce((s, it) => s + Math.round((it.targetSec || 0) / 60), 0)
+                return (
+                  <button key={fp.date} onClick={() => onSelect(fp.date)}
+                    className="w-full text-left bg-white border border-stone-100 rounded-2xl px-4 py-3 shadow-sm active:bg-stone-50 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-stone-800">{fmtDate(fp.date)}</p>
+                      <p className="text-xs text-stone-400 mt-0.5">{fp.items.length} subject{fp.items.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-stone-500">{fmtHM(totalMin * 60)} target</span>
+                      <Hourglass size={14} className="text-amber-400" />
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Today */}
+        {dailyPlan && (
+          <section>
+            <p className="text-xs font-bold tracking-widest text-stone-400 uppercase px-1 mb-2">Today</p>
+            <button onClick={() => onSelect(today)}
+              className="w-full text-left bg-white border border-stone-200 rounded-2xl px-4 py-3 shadow-sm active:bg-stone-50 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-stone-800">{fmtDate(today)}</p>
+                <p className="text-xs text-stone-400 mt-0.5">{dailyPlan.items.length} subject{dailyPlan.items.length !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-stone-500">
+                  {fmtHM(dailyPlan.items.reduce((s, it) => s + (it.elapsedSec || 0), 0))} studied
+                </span>
+                <Clock size={14} className="text-blue-400" />
+              </div>
+            </button>
+          </section>
+        )}
+
+        {/* Past plans */}
+        {pastEntries.length > 0 && (
+          <section>
+            <p className="text-xs font-bold tracking-widest text-stone-400 uppercase px-1 mb-2">History</p>
+            <div className="space-y-2">
+              {pastEntries.map((p) => {
+                const totalSec = p.items.reduce((s, it) => s + (it.elapsedSec || 0), 0)
+                const doneCount = p.items.filter((it) => it.status === 'done').length
+                const allDone = doneCount === p.items.length && p.items.length > 0
+                return (
+                  <button key={p.date} onClick={() => onSelect(p.date)}
+                    className="w-full text-left bg-white border border-stone-100 rounded-2xl px-4 py-3 shadow-sm active:bg-stone-50 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-stone-800">{fmtDate(p.date)}</p>
+                      <p className="text-xs text-stone-400 mt-0.5">{doneCount}/{p.items.length} done</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-stone-500">{fmtHM(totalSec)}</span>
+                      {allDone
+                        ? <CheckCircle2 size={14} className="text-green-500" />
+                        : <Circle size={14} className="text-stone-300" />}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )}
+
+        {pastEntries.length === 0 && !dailyPlan && futureEntries.length === 0 && (
+          <div className="text-center py-16">
+            <CalendarDays size={32} className="text-stone-200 mx-auto mb-3" />
+            <p className="text-sm text-stone-400">No plans yet.</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

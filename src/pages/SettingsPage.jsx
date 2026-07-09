@@ -1,4 +1,4 @@
-import { CalendarDays, ChartNoAxesColumnIncreasing, ChevronRight, FileText, User } from 'lucide-react'
+import { CalendarDays, ChartNoAxesColumnIncreasing, ChevronRight, FileText, User, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../lib/firebase.js'
@@ -10,6 +10,7 @@ export function SettingsPage({
   soundOn, setSoundOn, chatSoundOn, setChatSoundOn, playDing, playChatPing,
   setResetOpen,
   authTab, setAuthTab, authForms, setAuthForms, login, signup, loginWithGoogle, setCurrentUser,
+  isAdmin,
 }) {
   const navigate = useNavigate()
   const accountLabel = currentUser?.email || (currentUser?.isGuest ? 'Guest mode' : 'Not signed in')
@@ -248,6 +249,23 @@ export function SettingsPage({
             </div>
           )}
         </section>
+
+        {isAdmin && (
+          <section>
+            <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Admin</p>
+            <div className="bg-white border border-stone-100 rounded-2xl shadow-sm overflow-hidden">
+              <button onClick={() => navigate('/admin')}
+                className="w-full flex items-center gap-3 p-4 hover:bg-stone-50 transition-colors text-left">
+                <div className="w-9 h-9 rounded-full bg-stone-900 flex items-center justify-center text-white"><ShieldCheck size={16} /></div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-stone-800">Admin Panel</p>
+                  <p className="text-xs text-stone-400">Users, rooms, broadcast</p>
+                </div>
+                <ChevronRight size={16} className="text-stone-300" />
+              </button>
+            </div>
+          </section>
+        )}
 
         <section>
           <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Danger Zone</p>

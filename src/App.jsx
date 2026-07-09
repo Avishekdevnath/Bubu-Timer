@@ -20,8 +20,8 @@ import { auth, firestore } from './lib/firebase.js'
 import { registerPushToken, savePushToken, subscribeForegroundMessages, scheduleTimerDoneNotification, cancelTimerNotification } from './lib/messaging.js'
 import { todayStr } from './lib/dates.js'
 import { loadStoredState, loadThemeValue, saveStoredState, saveThemeValue } from './lib/storage.js'
-import { flushCloudPushNow, mergeCloudIntoLocal, pullCloudState, queueCloudPush } from './lib/cloudSync.js'
-import { buildPlan, startItem, pauseItem, markItemDone, endDay, autoArchiveIfPastCutoff, addItemToPlan, removeItemFromPlan, updateItemInPlan, saveFuturePlan, deleteFuturePlan, autoPauseForAway, resumeAfterAway } from './features/plan/planModel.js'
+import { flushCloudPushNow, mergeCloudIntoLocal, subscribeCloudState, queueCloudPush } from './lib/cloudSync.js'
+import { buildPlan, startItem, pauseItem, markItemDone, endDay, autoArchiveIfPastCutoff, addItemToPlan, removeItemFromPlan, updateItemInPlan, saveFuturePlan, deleteFuturePlan, autoPauseForAway, resumeAfterAway, reduceProgress } from './features/plan/planModel.js'
 import { dhakaNowMinutes } from './lib/dates.js'
 import { ProgressNoteModal } from './components/ProgressNoteModal.jsx'
 import { EndDayModal } from './components/EndDayModal.jsx'
@@ -40,10 +40,13 @@ const PinnedPage         = lazy(() => import('./pages/PinnedPage.jsx').then(m =>
 const StarredPage        = lazy(() => import('./pages/StarredPage.jsx').then(m => ({ default: m.StarredPage })))
 const ChecklistsPage     = lazy(() => import('./pages/ChecklistsPage.jsx').then(m => ({ default: m.ChecklistsPage })))
 const PlanHistoryPage    = lazy(() => import('./pages/PlanHistoryPage.jsx').then(m => ({ default: m.PlanHistoryPage })))
+const AdminPage          = lazy(() => import('./pages/AdminPage.jsx').then(m => ({ default: m.AdminPage })))
 import { SubjectModal } from './features/subjects/SubjectModal.jsx'
 import { ReportModal } from './features/reports/ReportModal.jsx'
 import { ConfirmReset } from './components/ConfirmReset.jsx'
 import { AwayModal } from './components/AwayModal.jsx'
+import { MinutesPicker } from './components/MinutesPicker.jsx'
+import { AnnouncementBanner } from './components/AnnouncementBanner.jsx'
 
 const tabs = [
   { label: 'Home', path: '/home', icon: Home },
@@ -69,6 +72,7 @@ function App() {
   const [endDayOpen, setEndDayOpen] = useState(false)
   const [authTab, setAuthTab] = useState('login')
   const [currentUser, setCurrentUser] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [authForms, setAuthForms] = useState({
     loginEmail: '',
     loginPassword: '',
@@ -80,8 +84,10 @@ function App() {
   const [profileForm, setProfileForm] = useState({ username: '', partnerName: '' })
   const toastTimer = useRef(null)
   const cloudUidRef = useRef(null)
+  const cloudUnsubRef = useRef(null)
   const [keyboardOpen, setKeyboardOpen] = useState(false)
   const [awayModal, setAwayModal] = useState(null)
+   const [reduceModal, setReduceModal] = useState(null)
   const hiddenAtRef = useRef(null)
   const appStateRef = useRef(appState)
   const [soundOn, setSoundOn] = useState(() => localStorage.getItem('bubu_sound') !== 'off')
@@ -216,13 +222,17 @@ function App() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         cloudUidRef.current = null
+        cloudUnsubRef.current?.()
+        cloudUnsubRef.current = null
         setCurrentUser((prev) => (prev?.isGuest ? prev : null))
+        setIsAdmin(false)
         return
       }
       // Set user immediately so UI updates even if Firestore is slow/fails
       const baseProfile = { uid: user.uid, email: user.email, username: user.displayName || '', partnerName: '', photoURL: user.photoURL || '' }
       cloudUidRef.current = user.uid
       setCurrentUser(baseProfile)
+      user.getIdTokenResult().then((r) => setIsAdmin(r.claims.admin === true)).catch(() => setIsAdmin(false))
       // Register for push notifications (fire-and-forget)
       registerPushToken(user.uid).catch(() => {})
       // Wire up Capacitor native push listeners (no-op in browser)
@@ -252,29 +262,25 @@ function App() {
         const profile = { uid: user.uid, email: user.email, username: data.username || user.displayName || '', partnerName: data.partnerName || '', photoURL: data.photoURL || user.photoURL || '' }
         setCurrentUser(profile)
 
-        // Pull cloud state. Compare to local savedAt; newer wins (LWW).
-        const cloud = await pullCloudState(user.uid)
-        if (cloud?.state) {
-          let localSavedAt = 0
-          try {
-            const raw = localStorage.getItem('bubu_state')
-            if (raw) localSavedAt = JSON.parse(raw).savedAt || 0
-          } catch { /* ignore */ }
-          if ((cloud.updatedAtMs || 0) > localSavedAt) {
+        // Real-time Firestore subscription — Firestore is source of truth.
+        cloudUnsubRef.current?.()
+        cloudUnsubRef.current = subscribeCloudState(user.uid, {
+          onData: (cloud) => {
             setAppState((prev) => {
               const merged = mergeCloudIntoLocal(prev, cloud)
+              // Skip re-render if synced fields are identical (our own write came back)
+              const prevKeys = ['subjects','subjectProgress','chapterProgress','dailyPlan','planHistory','futurePlans','dayCutoff']
+              const changed = prevKeys.some((k) => JSON.stringify(prev[k]) !== JSON.stringify(merged[k]))
+              if (!changed) return prev
               saveStoredState(merged)
               return merged
             })
-            showToast('Synced from cloud', 'study-t')
-          } else if (localSavedAt > (cloud.updatedAtMs || 0)) {
-            // Local is newer — push it up so other devices catch up.
-            queueCloudPush(user.uid, appState)
-          }
-        } else {
-          // First sync — push current local state to seed the cloud doc.
-          queueCloudPush(user.uid, appState)
-        }
+          },
+          onEmpty: () => {
+            // No cloud doc yet — seed from current local state
+            queueCloudPush(user.uid, appStateRef.current)
+          },
+        })
       } catch {
         // Silently handle Firestore errors
       }
@@ -308,9 +314,12 @@ function App() {
         hiddenAtRef.current = Date.now()
         return
       }
+      // On return: auto-archive if date has changed while away
+      const now = Date.now()
+      patchState((s) => autoArchiveIfPastCutoff(s, { todayDate: todayStr(), nowMinutes: dhakaNowMinutes(), now }))
+
       const hiddenAt = hiddenAtRef.current
       if (!hiddenAt) return
-      const now = Date.now()
       const awayMs = now - hiddenAt
       hiddenAtRef.current = null
       if (awayMs < AWAY_THRESHOLD_MS) return
@@ -511,6 +520,19 @@ function App() {
     setAwayModal(null)
   }
 
+  function handleReduceItem(itemId, elapsedMin) {
+    setReduceModal({ itemId, elapsedMin })
+  }
+
+  function submitReduce(reduceSec) {
+    if (!reduceModal) return
+    const { itemId } = reduceModal
+    const now = Date.now()
+    patchState((s) => reduceProgress(s, { id: itemId, reduceSec, now }))
+    addLog('Progress reduced (distraction)', 'ls')
+    setReduceModal(null)
+  }
+
   async function signup(event) {
     event.preventDefault()
     const { signupEmail, signupPassword, signupUsername, signupPartnerName } = authForms
@@ -643,21 +665,23 @@ function App() {
           </div>
         </header>
 
+        <AnnouncementBanner />
+
         {/* Screen content */}
         <main className={`flex-1 overflow-x-hidden ${location.pathname === '/buddy' ? 'overflow-hidden' : 'overflow-y-auto pb-20 md:pb-6'}`}>
           <ErrorBoundary>
           <Suspense fallback={<div className="flex items-center justify-center h-32"><div className="w-6 h-6 rounded-full border-2 border-stone-300 border-t-stone-700 animate-spin" /></div>}>
           <Routes>
             <Route path="/home" element={<HomePage />} />
-            <Route path="/" element={<TimerPage
-              appState={appState} room={room}
-              onStartItem={handleStartItem} onPause={openPauseNote} onDone={openDoneNote}
-              onEndDay={() => setEndDayOpen(true)} onCreatePlan={createPlan} onAddSubject={addSubjectToPlan}
-              onRemoveItem={removeFromPlan} onEditItem={handleEditItem}
-              onSaveFuturePlan={handleSaveFuturePlan}
-              onDeleteFuturePlan={handleDeleteFuturePlan}
-              navigate={navigate}
-            />} />
+<Route path="/" element={<TimerPage
+               appState={appState} room={room}
+               onStartItem={handleStartItem} onPause={openPauseNote} onDone={openDoneNote}
+               onEndDay={() => setEndDayOpen(true)} onCreatePlan={createPlan} onAddSubject={addSubjectToPlan}
+               onRemoveItem={removeFromPlan} onEditItem={handleEditItem} onReduce={handleReduceItem}
+               onSaveFuturePlan={handleSaveFuturePlan}
+               onDeleteFuturePlan={handleDeleteFuturePlan}
+               navigate={navigate}
+             />} />
             <Route path="/subjects" element={<SubjectsPage
               appState={appState} search={search} setSearch={setSearch}
               setSubjectModal={setSubjectModal} expanded={expanded} setExpanded={setExpanded}
@@ -670,6 +694,7 @@ function App() {
               playDing={playDing} playChatPing={playChatPing} setResetOpen={setResetOpen}
               authTab={authTab} setAuthTab={setAuthTab} authForms={authForms} setAuthForms={setAuthForms}
               login={login} signup={signup} loginWithGoogle={loginWithGoogle} setCurrentUser={setCurrentUser}
+              isAdmin={isAdmin}
             />} />
             <Route path="/partner-settings" element={<PartnerSettingsPage room={room} showToast={showToast} />} />
             <Route path="/log" element={<LogPage appState={appState} patchState={patchState} />} />
@@ -679,6 +704,9 @@ function App() {
             <Route path="/buddy/pins" element={<PinnedPage room={room} navigate={navigate} />} />
             <Route path="/buddy/starred" element={<StarredPage room={room} navigate={navigate} />} />
             <Route path="/buddy/checklists" element={<ChecklistsPage room={room} navigate={navigate} />} />
+            <Route path="/admin" element={isAdmin
+              ? <AdminPage showToast={showToast} currentUser={currentUser} />
+              : <Navigate to="/home" replace />} />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
           </Suspense>
@@ -716,6 +744,7 @@ function App() {
       {/* ── Overlays ── */}
       {toast ? <div className="toast show">{toast.message}</div> : null}
       {awayModal ? <AwayModal awayMin={awayModal.awayMin} itemName={awayModal.itemName} onConfirm={handleAwayConfirm} onKeepAll={handleAwayKeepAll} /> : null}
+      {reduceModal ? <MinutesPicker elapsedMin={reduceModal.elapsedMin} onSubmit={submitReduce} onCancel={() => setReduceModal(null)} /> : null}
       {noteModal ? <ProgressNoteModal mode={noteModal.mode} onSubmit={submitNote} onCancel={() => setNoteModal(null)} /> : null}
       {endDayOpen ? <EndDayModal
         onSubmit={submitEndDay}

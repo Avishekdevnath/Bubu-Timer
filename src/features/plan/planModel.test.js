@@ -98,15 +98,15 @@ describe('reduceProgress', () => {
   it('reduces elapsed time while keeping item running', () => {
     const { s, id } = planWithOne()
     const running = startItem(s, id, 10_000)
-    const reduced = reduceProgress(running, { id, reduceSec: 300, now: 50_000 })
+    const reduced = reduceProgress(running, { id, reduceSec: 30, now: 50_000 })
     const it = reduced.dailyPlan.items[0]
     expect(it.status).toBe('running')
-    expect(it.elapsedSec).toBe(3300) // 40 sec elapsed - 5 min reduced = -290, but we take liveElapsedSec
+    expect(it.elapsedSec).toBe(10) // 40 sec elapsed - 30 sec reduced = 10 sec
   })
   it('does not reduce below zero', () => {
     const { s, id } = planWithOne()
     const running = startItem(s, id, 10_000)
-    const reduced = reduceProgress(running, { id, reduceSec: 1000, now: 10_500 })
+    const reduced = reduceProgress(running, { id, reduceSec: 100, now: 10_500 })
     const it = reduced.dailyPlan.items[0]
     expect(it.elapsedSec).toBe(0)
   })
