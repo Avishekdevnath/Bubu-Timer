@@ -275,34 +275,46 @@ exports.adminSendEmail = adminCall('sendEmail', async (request) => {
 <div style="font-size:14px;color:#292524;line-height:1.6">${escapeHtml(body).replace(/\n/g, '<br>')}</div>
 </div>`
 
-  const results = await Promise.allSettled(
-    recipients.map((r) =>
-      fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${RESEND_API_KEY.value()}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: `${EMAIL_FROM_NAME} <${EMAIL_FROM}>`,
-          reply_to: EMAIL_REPLY_TO,
-          to: r.email,
-          subject,
-          html,
-        }),
-      }).then(async (res) => {
-        if (!res.ok) throw new Error(await res.text())
-        return res.json()
-      }),
-    ),
-  )
-
-  const perRecipient = recipients.map((r, i) => ({
-    uid: r.uid,
-    email: r.email,
-    status: results[i].status === 'fulfilled' ? 'sent' : 'failed',
-    resendId: results[i].status === 'fulfilled' ? results[i].value?.id || null : null,
+  // Resend's free tier rate-limits to ~2 req/sec — sending each recipient as a
+  // separate concurrent fetch tripped 429s under load. The batch endpoint sends
+  // all recipients in a single API call, sidestepping that entirely.
+  const payload = recipients.map((r) => ({
+    from: `${EMAIL_FROM_NAME} <${EMAIL_FROM}>`,
+    reply_to: EMAIL_REPLY_TO,
+    to: r.email,
+    subject,
+    html,
   }))
+
+  let perRecipient
+  let batchError = null
+  try {
+    const res = await fetch('https://api.resend.com/emails/batch', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY.value()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      batchError = await res.text()
+      perRecipient = recipients.map((r) => ({ uid: r.uid, email: r.email, status: 'failed', resendId: null }))
+    } else {
+      const json = await res.json()
+      const items = json?.data || []
+      perRecipient = recipients.map((r, i) => ({
+        uid: r.uid,
+        email: r.email,
+        status: items[i]?.id ? 'sent' : 'failed',
+        resendId: items[i]?.id || null,
+      }))
+    }
+  } catch (err) {
+    batchError = err.message
+    perRecipient = recipients.map((r) => ({ uid: r.uid, email: r.email, status: 'failed', resendId: null }))
+  }
+
   const sent = perRecipient.filter((r) => r.status === 'sent').length
   const failed = perRecipient.length - sent
 
@@ -315,6 +327,7 @@ exports.adminSendEmail = adminCall('sendEmail', async (request) => {
     recipients: perRecipient,
     sent,
     failed,
+    error: batchError,
   })
 
   return { data: { sent, failed, total: perRecipient.length }, target: toUid || 'all', params: { subject, sent, failed } }

@@ -89,6 +89,9 @@ export function AdminEmailTab({ showToast }) {
                 {expanded && (
                   <div className="mt-3 pt-3 border-t border-stone-100 space-y-2">
                     <p className="text-sm text-stone-600 whitespace-pre-wrap">{e.body}</p>
+                    {e.error && (
+                      <p className="text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">{e.error}</p>
+                    )}
                     {e.recipients?.length > 0 && (
                       <div>
                         <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-1">Recipients</p>
