@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert')
-const { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast, validateEmailMessage, escapeHtml } = require('./adminValidation.js')
+const { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast, validateEmailMessage, escapeHtml, markdownToHtml } = require('./adminValidation.js')
 
 test('requireString accepts and trims a normal string', () => {
   assert.strictEqual(requireString('  abc  ', 'uid', 200), 'abc')
@@ -107,4 +107,60 @@ test('escapeHtml escapes the five reserved characters', () => {
 
 test('escapeHtml leaves plain text unchanged', () => {
   assert.strictEqual(escapeHtml('hello world 123'), 'hello world 123')
+})
+
+test('markdownToHtml wraps plain text in a paragraph', () => {
+  assert.strictEqual(markdownToHtml('hello world'), '<p style="margin:0 0 12px">hello world</p>')
+})
+
+test('markdownToHtml preserves emoji unchanged', () => {
+  assert.strictEqual(markdownToHtml('Hi 👋 there 🎉'), '<p style="margin:0 0 12px">Hi 👋 there 🎉</p>')
+})
+
+test('markdownToHtml converts **bold**', () => {
+  assert.strictEqual(markdownToHtml('hello **world**'), '<p style="margin:0 0 12px">hello <strong>world</strong></p>')
+})
+
+test('markdownToHtml converts *italic* and _italic_', () => {
+  assert.strictEqual(markdownToHtml('hi *there*'), '<p style="margin:0 0 12px">hi <em>there</em></p>')
+  assert.strictEqual(markdownToHtml('hi _there_'), '<p style="margin:0 0 12px">hi <em>there</em></p>')
+})
+
+test('markdownToHtml converts `inline code`', () => {
+  assert.strictEqual(
+    markdownToHtml('run `npm test`'),
+    '<p style="margin:0 0 12px">run <code style="background:#f5f5f4;padding:1px 5px;border-radius:4px;font-family:monospace;font-size:13px">npm test</code></p>',
+  )
+})
+
+test('markdownToHtml converts [text](https://url) links, ignores non-http schemes', () => {
+  assert.strictEqual(
+    markdownToHtml('[Bubu](https://bubu-study-timer.web.app)'),
+    '<p style="margin:0 0 12px"><a href="https://bubu-study-timer.web.app" style="color:#0891b2;text-decoration:underline">Bubu</a></p>',
+  )
+  assert.strictEqual(
+    markdownToHtml('[bad](javascript:alert(1))'),
+    '<p style="margin:0 0 12px">[bad](javascript:alert(1))</p>',
+  )
+})
+
+test('markdownToHtml converts a bullet list block', () => {
+  assert.strictEqual(
+    markdownToHtml('- one\n- two'),
+    '<ul style="margin:0 0 12px;padding-left:20px"><li>one</li><li>two</li></ul>',
+  )
+})
+
+test('markdownToHtml splits blank-line-separated paragraphs, keeps single newlines as <br>', () => {
+  assert.strictEqual(
+    markdownToHtml('line one\nline two\n\nsecond paragraph'),
+    '<p style="margin:0 0 12px">line one<br>line two</p><p style="margin:0 0 12px">second paragraph</p>',
+  )
+})
+
+test('markdownToHtml escapes raw HTML before formatting', () => {
+  assert.strictEqual(
+    markdownToHtml('<script>alert(1)</script> **bold**'),
+    '<p style="margin:0 0 12px">&lt;script&gt;alert(1)&lt;/script&gt; <strong>bold</strong></p>',
+  )
 })

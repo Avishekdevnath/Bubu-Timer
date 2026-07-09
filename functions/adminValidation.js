@@ -60,4 +60,32 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;')
 }
 
-module.exports = { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast, validateEmailMessage, escapeHtml }
+function inlineFormat(str) {
+  return str
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" style="color:#0891b2;text-decoration:underline">$1</a>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[\s>])_([^_]+)_(?=[\s<]|$)/g, '$1<em>$2</em>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code style="background:#f5f5f4;padding:1px 5px;border-radius:4px;font-family:monospace;font-size:13px">$1</code>')
+}
+
+// Minimal markdown subset for admin-authored emails: **bold**, *italic*/_italic_,
+// `code`, [text](https://url) links, "- " bullet lists, blank-line paragraphs.
+// Escapes HTML first so this is safe to use directly with untrusted admin input.
+function markdownToHtml(text) {
+  const escaped = escapeHtml(text)
+  return escaped
+    .split(/\n{2,}/)
+    .map((block) => {
+      const lines = block.split('\n')
+      const isList = lines.length > 0 && lines.every((l) => /^[-*]\s+/.test(l.trim()))
+      if (isList) {
+        const items = lines.map((l) => `<li>${inlineFormat(l.trim().replace(/^[-*]\s+/, ''))}</li>`).join('')
+        return `<ul style="margin:0 0 12px;padding-left:20px">${items}</ul>`
+      }
+      return `<p style="margin:0 0 12px">${lines.map(inlineFormat).join('<br>')}</p>`
+    })
+    .join('')
+}
+
+module.exports = { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast, validateEmailMessage, escapeHtml, markdownToHtml }

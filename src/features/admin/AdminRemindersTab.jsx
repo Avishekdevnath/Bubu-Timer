@@ -111,6 +111,9 @@ export function AdminRemindersTab({ showToast }) {
             Repeat forever (until stopped manually)
           </label>
           <p className="text-xs text-stone-400 px-1">Repeats every day at this time. Fires within 15 minutes of it — exact minute isn't guaranteed. Blank start = begins today.</p>
+          <p className="text-xs text-stone-400 px-1">
+            Email formatting: emoji work anywhere, plus **bold**, *italic*, `code`, [link](https://url), "- " bullet lists.
+          </p>
           <button onClick={create} disabled={creating}
             className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
             <AlarmClock size={14} /> {creating ? 'Creating…' : 'Create reminder'}

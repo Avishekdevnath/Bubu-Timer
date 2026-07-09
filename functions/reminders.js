@@ -3,7 +3,7 @@ const { defineSecret } = require('firebase-functions/params')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
 const logger = require('firebase-functions/logger')
-const { escapeHtml } = require('./adminValidation.js')
+const { escapeHtml, markdownToHtml } = require('./adminValidation.js')
 
 const REGION = 'asia-southeast1'
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY')
@@ -122,7 +122,7 @@ async function sendReminderEmail(fs, reminder) {
 
   const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:480px;margin:0 auto;padding:24px">
 <p style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#78716c;margin:0 0 16px">${escapeHtml(EMAIL_FROM_NAME)}</p>
-<div style="font-size:14px;color:#292524;line-height:1.6">${escapeHtml(reminder.body).replace(/\n/g, '<br>')}</div>
+<div style="font-size:14px;color:#292524;line-height:1.6">${markdownToHtml(reminder.body)}</div>
 </div>`
 
   const payload = recipients.map((r) => ({

@@ -58,6 +58,9 @@ export function AdminEmailTab({ showToast }) {
             value={subject} onChange={(e) => setSubject(e.target.value)} />
           <textarea className="field-in resize-none" rows={6} placeholder="Message (max 5000)" maxLength={5000}
             value={body} onChange={(e) => setBody(e.target.value)} />
+          <p className="text-xs text-stone-400 px-1">
+            Emoji work anywhere. Formatting: **bold**, *italic*, `code`, [link](https://url), and "- " for a bullet list.
+          </p>
           <UserPicker users={users} value={targetUser} onChange={setTargetUser} />
           <button onClick={send} disabled={sending}
             className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">

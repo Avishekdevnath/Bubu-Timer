@@ -5,7 +5,7 @@ const { getDatabase } = require('firebase-admin/database')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
 const logger = require('firebase-functions/logger')
-const { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast, validateEmailMessage, escapeHtml } = require('./adminValidation.js')
+const { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast, validateEmailMessage, escapeHtml, markdownToHtml } = require('./adminValidation.js')
 
 const REGION = 'asia-southeast1'
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY')
@@ -272,7 +272,7 @@ exports.adminSendEmail = adminCall('sendEmail', async (request) => {
 
   const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:480px;margin:0 auto;padding:24px">
 <p style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#78716c;margin:0 0 16px">${escapeHtml(EMAIL_FROM_NAME)}</p>
-<div style="font-size:14px;color:#292524;line-height:1.6">${escapeHtml(body).replace(/\n/g, '<br>')}</div>
+<div style="font-size:14px;color:#292524;line-height:1.6">${markdownToHtml(body)}</div>
 </div>`
 
   // Resend's free tier rate-limits to ~2 req/sec — sending each recipient as a
