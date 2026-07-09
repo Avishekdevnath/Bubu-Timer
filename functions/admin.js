@@ -1,12 +1,17 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
+const { defineSecret } = require('firebase-functions/params')
 const { getAuth } = require('firebase-admin/auth')
 const { getDatabase } = require('firebase-admin/database')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
 const logger = require('firebase-functions/logger')
-const { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast } = require('./adminValidation.js')
+const { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast, validateEmailMessage, escapeHtml } = require('./adminValidation.js')
 
 const REGION = 'asia-southeast1'
+const RESEND_API_KEY = defineSecret('RESEND_API_KEY')
+const EMAIL_FROM = 'hello@avishekdevnath.com'
+const EMAIL_FROM_NAME = 'BUBU Timer'
+const EMAIL_REPLY_TO = 'hello@avishekdevnath.com'
 
 // Mirror of react-app/src/state/defaultState.js createDefaultState() — keep in sync.
 const DEFAULT_STATE = {
@@ -37,8 +42,8 @@ async function auditLog(request, action, target, params = {}) {
   })
 }
 
-function adminCall(action, handler) {
-  return onCall({ region: REGION }, async (request) => {
+function adminCall(action, handler, extraOptions = {}) {
+  return onCall({ region: REGION, ...extraOptions }, async (request) => {
     assertAdmin(request)
     try {
       const result = await handler(request)
@@ -247,3 +252,70 @@ exports.adminBroadcast = adminCall('broadcast', async (request) => {
   await notifRef.update({ push: { sent, failed, tokens: tokens.length } })
   return { data: { sent, failed, tokens: tokens.length }, target: toUid || 'all', params: { title, sent, failed, pruned: stale.length, toUid } }
 })
+
+exports.adminSendEmail = adminCall('sendEmail', async (request) => {
+  const { subject, body, toUid } = validateEmailMessage(request.data)
+  const fs = getFirestore()
+
+  let recipients = []
+  if (toUid) {
+    const doc = await fs.doc(`users/${toUid}`).get()
+    if (!doc.exists || !doc.data()?.email) throw new HttpsError('not-found', 'User has no email on file')
+    recipients = [{ uid: toUid, email: doc.data().email }]
+  } else {
+    const docsSnap = await fs.collection('users').get()
+    recipients = docsSnap.docs
+      .map((d) => ({ uid: d.id, email: d.data()?.email }))
+      .filter((r) => r.email)
+  }
+  if (recipients.length === 0) throw new HttpsError('failed-precondition', 'No recipients with an email on file')
+
+  const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:480px;margin:0 auto;padding:24px">
+<p style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#78716c;margin:0 0 16px">${escapeHtml(EMAIL_FROM_NAME)}</p>
+<div style="font-size:14px;color:#292524;line-height:1.6">${escapeHtml(body).replace(/\n/g, '<br>')}</div>
+</div>`
+
+  const results = await Promise.allSettled(
+    recipients.map((r) =>
+      fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${RESEND_API_KEY.value()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: `${EMAIL_FROM_NAME} <${EMAIL_FROM}>`,
+          reply_to: EMAIL_REPLY_TO,
+          to: r.email,
+          subject,
+          html,
+        }),
+      }).then(async (res) => {
+        if (!res.ok) throw new Error(await res.text())
+        return res.json()
+      }),
+    ),
+  )
+
+  const perRecipient = recipients.map((r, i) => ({
+    uid: r.uid,
+    email: r.email,
+    status: results[i].status === 'fulfilled' ? 'sent' : 'failed',
+    resendId: results[i].status === 'fulfilled' ? results[i].value?.id || null : null,
+  }))
+  const sent = perRecipient.filter((r) => r.status === 'sent').length
+  const failed = perRecipient.length - sent
+
+  await fs.collection('emails').add({
+    subject,
+    body,
+    toUid,
+    sentBy: request.auth.uid,
+    createdAt: FieldValue.serverTimestamp(),
+    recipients: perRecipient,
+    sent,
+    failed,
+  })
+
+  return { data: { sent, failed, total: perRecipient.length }, target: toUid || 'all', params: { subject, sent, failed } }
+}, { secrets: [RESEND_API_KEY] })
