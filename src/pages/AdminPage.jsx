@@ -324,7 +324,7 @@ function UsersTab({ showToast, currentUser }) {
             {confirm.kind === 'delete' && `Permanently deletes ${confirm.user.email}: login, cloud data, room membership. Cannot be undone.`}
             {confirm.kind === 'disable' && (confirm.user.disabled
               ? `Re-enables sign-in for ${confirm.user.email}.`
-              : `Blocks ${confirm.user.email} from signing in. Existing sessions may still work until token refresh.`)}
+              : `Blocks ${confirm.user.email} from signing in and immediately ends any active session on their devices.`)}
           </p>
           {confirm.kind === 'delete' && (
             <input className="field-in" placeholder={`Type ${confirm.user.email} to confirm`}

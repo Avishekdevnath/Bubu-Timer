@@ -150,6 +150,11 @@ exports.adminSetUserDisabled = adminCall('setUserDisabled', async (request) => {
   const disabled = !!request.data?.disabled
   if (uid === request.auth.uid) throw new HttpsError('invalid-argument', 'Cannot disable yourself')
   await getAuth().updateUser(uid, { disabled })
+  if (disabled) {
+    // Kill any already-signed-in sessions immediately — updateUser alone only
+    // blocks new sign-ins; existing ID tokens stay valid until natural refresh.
+    await getAuth().revokeRefreshTokens(uid)
+  }
   return { target: uid, params: { disabled } }
 })
 
