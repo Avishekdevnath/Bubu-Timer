@@ -73,6 +73,7 @@ function App() {
   const [authTab, setAuthTab] = useState('login')
   const [currentUser, setCurrentUser] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [authLoading, setAuthLoading] = useState(true)
   const [authForms, setAuthForms] = useState({
     loginEmail: '',
     loginPassword: '',
@@ -285,6 +286,7 @@ function App() {
         // Silently handle Firestore errors
       }
     })
+    setAuthLoading(false)
     return unsubscribe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -704,9 +706,11 @@ function App() {
             <Route path="/buddy/pins" element={<PinnedPage room={room} navigate={navigate} />} />
             <Route path="/buddy/starred" element={<StarredPage room={room} navigate={navigate} />} />
             <Route path="/buddy/checklists" element={<ChecklistsPage room={room} navigate={navigate} />} />
-            <Route path="/admin" element={isAdmin
-              ? <AdminPage showToast={showToast} currentUser={currentUser} />
-              : <Navigate to="/home" replace />} />
+            <Route path="/admin" element={
+              authLoading ? null : (currentUser && !currentUser.isGuest
+                ? (isAdmin ? <AdminPage showToast={showToast} currentUser={currentUser} /> : <Navigate to="/home" replace />)
+                : <Navigate to="/home" replace />)
+            } />
             <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
           </Suspense>
