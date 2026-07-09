@@ -1,7 +1,7 @@
 import { httpsCallable } from 'firebase/functions'
-import { deleteDoc, doc, updateDoc } from 'firebase/firestore'
+import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { ref, update } from 'firebase/database'
-import { database, firestore, functions } from '../../lib/firebase.js'
+import { auth, database, firestore, functions } from '../../lib/firebase.js'
 
 const call = (name) => async (payload = {}) => {
   const fn = httpsCallable(functions, name)
@@ -31,3 +31,14 @@ export const setRoomSlot = (code, slot, fields) => update(ref(database, `rooms/$
 // Notifications: rules allow admin-claim writes directly, no callable needed.
 export const updateNotification = (id, patch) => updateDoc(doc(firestore, 'notifications', id), patch)
 export const deleteNotification = (id) => deleteDoc(doc(firestore, 'notifications', id))
+
+// Reminders: rules allow admin-claim read+write directly, no callable needed.
+export const createReminder = (data) =>
+  addDoc(collection(firestore, 'reminders'), {
+    ...data,
+    createdBy: auth.currentUser?.uid || '',
+    createdAt: serverTimestamp(),
+    lastFiredDate: null,
+  })
+export const setReminderActive = (id, active) => updateDoc(doc(firestore, 'reminders', id), { active })
+export const deleteReminder = (id) => deleteDoc(doc(firestore, 'reminders', id))
