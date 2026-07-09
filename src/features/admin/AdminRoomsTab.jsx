@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, DoorClosed, Eraser, Pencil, Plus, Search, UserX
 import { database } from '../../lib/firebase.js'
 import { AppModal } from '../../components/AppModal.jsx'
 import { SkeletonRows } from '../../components/Skeleton.jsx'
+import { CopyButton } from '../../components/CopyButton.jsx'
 import { closeRoom, clearChat, kickMember, setRoomSlot } from './adminApi.js'
 import { filterRooms, roomTimestamps } from './roomStats.js'
 
@@ -116,6 +117,7 @@ export function AdminRoomsTab({ showToast }) {
                 <p className="text-sm font-semibold text-stone-800">{code}</p>
                 <p className="text-xs text-stone-400 truncate">{members.join(' + ') || 'empty'} · {msgCount} messages</p>
               </button>
+              <CopyButton value={code} label={`Copy room code ${code}`} />
               <div className="flex gap-2 shrink-0 items-center">
                 <button onClick={() => setConfirm({ kind: 'clear', code })}
                   className="p-2 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50" title="Clear chat" aria-label={`Clear chat in room ${code}`}>

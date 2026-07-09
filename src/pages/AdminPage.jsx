@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Route, Routes, useNavigate } from 'react-router-dom'
 import { onValue, ref } from 'firebase/database'
-import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronUp, Copy, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, ShieldOff, Trash2, RotateCcw } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, ShieldOff, Trash2, RotateCcw } from 'lucide-react'
 import { AppModal } from '../components/AppModal.jsx'
 import { SkeletonRows } from '../components/Skeleton.jsx'
+import { CopyButton } from '../components/CopyButton.jsx'
 import { listUsers, resetUser, deleteUser, setUserDisabled, broadcast, updateUserProfile, createUser } from '../features/admin/adminApi.js'
 import { filterUsers, sortUsers } from '../features/admin/userStats.js'
 import { AdminDashboardTab } from '../features/admin/AdminDashboardTab.jsx'
@@ -246,6 +247,10 @@ function UsersTab({ showToast, currentUser }) {
 
               {expanded && (
                 <div className="mt-3 pt-3 border-t border-stone-100 space-y-3">
+                  <div className="flex items-center gap-1">
+                    <p className="text-[10px] text-stone-400 font-mono truncate">{u.uid}</p>
+                    <CopyButton value={u.uid} label={`Copy uid ${u.uid}`} />
+                  </div>
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-stone-500">Active room: {activeRoom || 'none'}</p>
                     {u.uid !== currentUser?.uid && (
