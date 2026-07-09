@@ -23,6 +23,19 @@ function isExpired(reminder, dateStr) {
   return dateStr > reminder.endDate
 }
 
+// reminder.toUid is null (everyone), a single uid string, or an array of uids
+// (multi-user targeting). Normalizes to an array of uids, or null for everyone.
+function targetUidList(toUid) {
+  if (toUid == null) return null
+  return Array.isArray(toUid) ? toUid : [toUid]
+}
+
+async function fetchTargetUserDocs(fs, toUid) {
+  const uids = targetUidList(toUid)
+  if (uids === null) return (await fs.collection('users').get()).docs
+  return Promise.all(uids.map((uid) => fs.doc(`users/${uid}`).get()))
+}
+
 function dhakaParts(date) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Dhaka',
@@ -49,9 +62,7 @@ async function sendReminderPush(fs, reminder, reminderId, dateStr) {
     push: null,
   })
 
-  const docsSnap = reminder.toUid
-    ? [await fs.collection('users').doc(reminder.toUid).get()]
-    : (await fs.collection('users').get()).docs
+  const docsSnap = await fetchTargetUserDocs(fs, reminder.toUid)
   const tokenOwners = new Map()
   for (const doc of docsSnap) {
     if (!doc.exists) continue
@@ -97,14 +108,11 @@ async function sendReminderPush(fs, reminder, reminderId, dateStr) {
 }
 
 async function sendReminderEmail(fs, reminder) {
-  let recipients = []
-  if (reminder.toUid) {
-    const doc = await fs.doc(`users/${reminder.toUid}`).get()
-    if (doc.exists && doc.data()?.email) recipients = [{ uid: reminder.toUid, email: doc.data().email }]
-  } else {
-    const docsSnap = await fs.collection('users').get()
-    recipients = docsSnap.docs.map((d) => ({ uid: d.id, email: d.data()?.email })).filter((r) => r.email)
-  }
+  const docsSnap = await fetchTargetUserDocs(fs, reminder.toUid)
+  const recipients = docsSnap
+    .filter((d) => d.exists)
+    .map((d) => ({ uid: d.id, email: d.data()?.email }))
+    .filter((r) => r.email)
   if (recipients.length === 0) return
 
   const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:480px;margin:0 auto;padding:24px">

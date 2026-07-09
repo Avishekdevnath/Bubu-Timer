@@ -4,7 +4,7 @@ import { AlarmClock, Pause, Play, Trash2 } from 'lucide-react'
 import { firestore } from '../../lib/firebase.js'
 import { AppModal } from '../../components/AppModal.jsx'
 import { SkeletonRows } from '../../components/Skeleton.jsx'
-import { UserPicker } from '../../components/UserPicker.jsx'
+import { MultiUserPicker } from '../../components/MultiUserPicker.jsx'
 import { createReminder, deleteReminder, listUsers, setReminderActive } from './adminApi.js'
 
 function pad2(n) { return String(n).padStart(2, '0') }
@@ -19,7 +19,7 @@ export function AdminRemindersTab({ showToast }) {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [users, setUsers] = useState(null)
-  const [targetUser, setTargetUser] = useState(null)
+  const [targetUsers, setTargetUsers] = useState([])
   const [timeValue, setTimeValue] = useState('08:00')
   const [endDate, setEndDate] = useState('')
   const [creating, setCreating] = useState(false)
@@ -44,14 +44,14 @@ export function AdminRemindersTab({ showToast }) {
       await createReminder({
         title: title.trim(),
         body: body.trim(),
-        toUid: targetUser?.uid || null,
+        toUid: targetUsers.length > 0 ? targetUsers.map((u) => u.uid) : null,
         timeHour: h,
         timeMinute: m,
         endDate: endDate || null,
         active: true,
       })
       showToast('Reminder created')
-      setTitle(''); setBody(''); setTargetUser(null); setEndDate('')
+      setTitle(''); setBody(''); setTargetUsers([]); setEndDate('')
     } catch (err) {
       showToast(`Create failed: ${err.message}`)
     } finally {
@@ -87,7 +87,7 @@ export function AdminRemindersTab({ showToast }) {
             value={title} onChange={(e) => setTitle(e.target.value)} />
           <textarea className="field-in resize-none" rows={2} placeholder="Message" maxLength={500}
             value={body} onChange={(e) => setBody(e.target.value)} />
-          <UserPicker users={users} value={targetUser} onChange={setTargetUser} />
+          <MultiUserPicker users={users} value={targetUsers} onChange={setTargetUsers} />
           <div className="flex gap-2">
             <input type="time" className="field-in w-auto" value={timeValue} onChange={(e) => setTimeValue(e.target.value)}
               aria-label="Time (any hour and minute, repeats daily)" />
@@ -108,7 +108,10 @@ export function AdminRemindersTab({ showToast }) {
         {reminders?.length === 0 && <p className="text-xs text-stone-400 px-1">No reminders yet</p>}
         <div className="space-y-2">
           {(reminders || []).map((r) => {
-            const target = r.toUid ? users?.find((u) => u.uid === r.toUid) : null
+            const targetUids = Array.isArray(r.toUid) ? r.toUid : (r.toUid ? [r.toUid] : [])
+            const targetLabel = targetUids.length === 0
+              ? 'everyone'
+              : targetUids.map((uid) => users?.find((u) => u.uid === uid)?.displayName || uid).join(', ')
             return (
               <div key={r.id} className="bg-white border border-stone-100 rounded-2xl shadow-sm p-4">
                 <div className="flex items-center justify-between gap-3">
@@ -120,7 +123,7 @@ export function AdminRemindersTab({ showToast }) {
                       </span>
                     </p>
                     <p className="text-xs text-stone-400 truncate">
-                      {scheduleSummary(r)} · {r.toUid ? (target?.displayName || target?.email || r.toUid) : 'everyone'}
+                      {scheduleSummary(r)} · {targetLabel}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
