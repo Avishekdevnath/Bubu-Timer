@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore'
 import { ChevronDown, ChevronUp, FlaskConical, Megaphone, Send, Trash2 } from 'lucide-react'
 import { auth, firestore } from '../../lib/firebase.js'
@@ -33,6 +33,8 @@ export function AdminBroadcastTab({ showToast }) {
   const [editBody, setEditBody] = useState('')
   const [savingId, setSavingId] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null) // notif id
+  const [resendConfirm, setResendConfirm] = useState(false)
+  const lastSentRef = useRef(null) // { title, at }
 
   useEffect(() => {
     return onSnapshot(doc(firestore, 'config', 'announcement'), (snap) => {
@@ -50,19 +52,30 @@ export function AdminBroadcastTab({ showToast }) {
     return onSnapshot(q, (snap) => setNotifs(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {})
   }, [])
 
-  async function send() {
-    if (!title.trim() || !body.trim()) { showToast('Title and body required'); return }
-    if (url.trim() && !url.trim().startsWith('/')) { showToast('Link must start with /'); return }
+  async function doSend() {
     setSending(true)
     try {
       const res = await broadcast(title.trim(), body.trim(), url.trim() || undefined, toUid.trim() || undefined)
       showToast(`Sent to ${res.sent}/${res.tokens} devices${res.failed ? ` (${res.failed} failed)` : ''}`)
+      lastSentRef.current = { title: title.trim(), at: Date.now() }
       setTitle(''); setBody(''); setUrl(''); setToUid('')
     } catch (err) {
       showToast(`Broadcast failed: ${err.message}`)
     } finally {
       setSending(false)
+      setResendConfirm(false)
     }
+  }
+
+  function send() {
+    if (!title.trim() || !body.trim()) { showToast('Title and body required'); return }
+    if (url.trim() && !url.trim().startsWith('/')) { showToast('Link must start with /'); return }
+    const last = lastSentRef.current
+    if (last && last.title === title.trim() && Date.now() - last.at < 60000) {
+      setResendConfirm(true)
+      return
+    }
+    doSend()
   }
 
   async function sendTest() {
@@ -225,6 +238,18 @@ export function AdminBroadcastTab({ showToast }) {
           })}
         </div>
       </section>
+
+      {resendConfirm && (
+        <AppModal title="Send again?" onClose={() => setResendConfirm(false)}>
+          <p className="text-sm text-stone-500 mb-3">
+            A broadcast titled &quot;{title.trim()}&quot; was already sent less than a minute ago. Send it again?
+          </p>
+          <button onClick={doSend} disabled={sending}
+            className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40">
+            {sending ? 'Sending…' : 'Send again'}
+          </button>
+        </AppModal>
+      )}
 
       {deleteConfirm && (
         <AppModal title="Delete notification?" onClose={() => setDeleteConfirm(null)}>
