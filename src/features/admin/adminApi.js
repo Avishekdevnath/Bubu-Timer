@@ -22,6 +22,8 @@ export const updateUserProfile = (uid, { displayName, email } = {}) =>
   call('adminUpdateUserProfile')({ uid, ...(displayName ? { displayName } : {}), ...(email ? { email } : {}) })
 export const createUser = (email, password, displayName) =>
   call('adminCreateUser')({ email, password, ...(displayName ? { displayName } : {}) })
+export const sendEmail = (subject, body, toUid) =>
+  call('adminSendEmail')({ subject, body, ...(toUid ? { toUid } : {}) })
 
 // Rooms: RTDB allows any signed-in user to write `rooms/*`, no callable needed.
 export const setRoomSlot = (code, slot, fields) => update(ref(database, `rooms/${code}/${slot}`), fields)
