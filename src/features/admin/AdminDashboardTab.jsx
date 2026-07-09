@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { onValue, ref } from 'firebase/database'
-import { ChevronRight, MessageSquare, Radio, Smartphone, Users } from 'lucide-react'
+import { AlertTriangle, ChevronRight, MessageSquare, Radio, Smartphone, Users } from 'lucide-react'
 import { database, firestore } from '../../lib/firebase.js'
 import { listUsers } from './adminApi.js'
-import { messagesToday } from './roomStats.js'
+import { messagesToday, staleRoomCount } from './roomStats.js'
 import { Skeleton, SkeletonRows } from '../../components/Skeleton.jsx'
 
 function StatCard({ icon: Icon, label, value }) {
@@ -22,6 +22,7 @@ function StatCard({ icon: Icon, label, value }) {
 export function AdminDashboardTab({ showToast, onOpenLogs }) {
   const [userCount, setUserCount] = useState(null)
   const [deviceCount, setDeviceCount] = useState(null)
+  const [disabledCount, setDisabledCount] = useState(null)
   const [rooms, setRooms] = useState(null)
   const [recentLogs, setRecentLogs] = useState(null)
 
@@ -29,6 +30,7 @@ export function AdminDashboardTab({ showToast, onOpenLogs }) {
     listUsers().then((res) => {
       setUserCount(res.users.length)
       setDeviceCount(res.users.reduce((sum, u) => sum + u.tokenCount, 0))
+      setDisabledCount(res.users.filter((u) => u.disabled).length)
     }).catch((err) => showToast(`Load failed: ${err.message}`))
   }, [showToast])
 
@@ -43,9 +45,20 @@ export function AdminDashboardTab({ showToast, onOpenLogs }) {
 
   const roomCount = rooms ? Object.keys(rooms).length : null
   const msgsToday = rooms ? messagesToday(rooms, Date.now()) : null
+  const staleCount = rooms ? staleRoomCount(rooms, Date.now(), 30) : null
+
+  const callouts = []
+  if (disabledCount > 0) callouts.push(`${disabledCount} user${disabledCount > 1 ? 's' : ''} disabled`)
+  if (staleCount > 0) callouts.push(`${staleCount} room${staleCount > 1 ? 's' : ''} inactive 30+ days`)
 
   return (
     <div className="space-y-4">
+      {callouts.length > 0 && (
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-amber-800 text-xs">
+          <AlertTriangle size={14} className="shrink-0" />
+          {callouts.join(' · ')}
+        </div>
+      )}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={Users} label="Users" value={userCount} />
         <StatCard icon={Radio} label="Active rooms" value={roomCount} />

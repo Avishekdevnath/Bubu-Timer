@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterRooms, messagesToday, roomTimestamps } from './roomStats.js'
+import { filterRooms, messagesToday, roomTimestamps, staleRoomCount } from './roomStats.js'
 
 describe('messagesToday', () => {
   it('counts only messages from today across all rooms', () => {
@@ -46,5 +46,24 @@ describe('filterRooms', () => {
   })
   it('filters by member name, case-insensitive', () => {
     expect(filterRooms(rooms, 'carol').map(([code]) => code)).toEqual(['XYZ999'])
+  })
+})
+
+describe('staleRoomCount', () => {
+  const DAY = 24 * 60 * 60 * 1000
+  it('counts rooms whose last activity is older than the threshold', () => {
+    const now = Date.now()
+    const rooms = {
+      fresh: { A: { joinedAt: now - DAY, updatedAt: now - DAY } },
+      stale: { A: { joinedAt: now - 40 * DAY, updatedAt: now - 40 * DAY } },
+    }
+    expect(staleRoomCount(rooms, now, 30)).toBe(1)
+  })
+  it('ignores rooms with no activity timestamps at all', () => {
+    const rooms = { empty: {} }
+    expect(staleRoomCount(rooms, Date.now(), 30)).toBe(0)
+  })
+  it('returns 0 for no rooms', () => {
+    expect(staleRoomCount({}, Date.now(), 30)).toBe(0)
   })
 })

@@ -20,6 +20,16 @@ export function roomTimestamps(room) {
   return { created, lastActive }
 }
 
+export function staleRoomCount(rooms, nowMs, thresholdDays) {
+  const thresholdMs = thresholdDays * 24 * 60 * 60 * 1000
+  let count = 0
+  for (const room of Object.values(rooms || {})) {
+    const { lastActive } = roomTimestamps(room)
+    if (lastActive > 0 && nowMs - lastActive > thresholdMs) count++
+  }
+  return count
+}
+
 export function filterRooms(rooms, query) {
   const entries = Object.entries(rooms || {})
   const q = query.trim().toLowerCase()
