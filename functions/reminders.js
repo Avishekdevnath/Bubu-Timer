@@ -194,7 +194,11 @@ const checkReminders = onSchedule(
         logger.info(`reminder ${doc.id} due now — sending`)
         await sendReminderPush(fs, reminder, doc.id, dateStr)
         await sendReminderEmail(fs, reminder)
-        await doc.ref.update({ lastFiredDate: dateStr })
+        await doc.ref.update({
+          lastFiredDate: dateStr,
+          lastFiredAt: FieldValue.serverTimestamp(),
+          fireCount: FieldValue.increment(1),
+        })
       } catch (err) {
         logger.error(`reminder ${doc.id} failed`, err)
       }
@@ -204,7 +208,8 @@ const checkReminders = onSchedule(
 
 // Manual trigger for admins: fires push + email for one reminder right now,
 // bypassing the schedule/lastFiredDate/startDate/endDate checks entirely.
-// Does not touch lastFiredDate, so it never disturbs the normal daily schedule.
+// Still counts toward fireCount/lastFiredAt (it did send), but deliberately
+// leaves lastFiredDate untouched so it never disturbs the normal daily schedule.
 const adminSendReminderNow = adminCall('sendReminderNow', async (request) => {
   const id = requireString(request.data?.id, 'id', 200)
   const fs = getFirestore()
@@ -215,6 +220,7 @@ const adminSendReminderNow = adminCall('sendReminderNow', async (request) => {
 
   await sendReminderPush(fs, reminder, doc.id, dateStr)
   await sendReminderEmail(fs, reminder)
+  await doc.ref.update({ lastFiredAt: FieldValue.serverTimestamp(), fireCount: FieldValue.increment(1) })
 
   return { data: { ok: true }, target: id, params: { title: reminder.title } }
 }, { secrets: [RESEND_API_KEY] })

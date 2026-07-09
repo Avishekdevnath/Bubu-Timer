@@ -16,6 +16,13 @@ function scheduleSummary(r) {
   return `Daily at ${time} · ${from} · ${until}`
 }
 
+function fireSummary(r) {
+  const count = r.fireCount || 0
+  if (count === 0) return 'Never triggered yet'
+  const when = r.lastFiredAt?.toDate ? r.lastFiredAt.toDate().toLocaleString() : 'unknown time'
+  return `Triggered ${count}× · last ${when}`
+}
+
 export function AdminRemindersTab({ showToast }) {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
@@ -161,6 +168,7 @@ export function AdminRemindersTab({ showToast }) {
                     <p className="text-xs text-stone-400 truncate">
                       {scheduleSummary(r)} · {targetLabel}
                     </p>
+                    <p className="text-xs text-stone-300 truncate">{fireSummary(r)}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <button onClick={() => sendNow(r)} disabled={sendingId === r.id}
