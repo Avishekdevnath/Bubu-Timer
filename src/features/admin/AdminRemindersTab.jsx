@@ -204,7 +204,7 @@ export function AdminRemindersTab({ showToast }) {
       )}
 
       {formOpen && (
-        <AppModal title={editingId ? 'Edit reminder' : 'Create reminder'} onClose={resetForm}>
+        <AppModal title={editingId ? 'Edit reminder' : 'Create reminder'} onClose={resetForm} wide>
           <div className="space-y-2">
             <input className="field-in" placeholder="Title (e.g. Take your medicine)" maxLength={100}
               value={title} onChange={(e) => setTitle(e.target.value)} />
