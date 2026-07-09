@@ -126,28 +126,66 @@ exports.adminClearChat = adminCall('clearChat', async (request) => {
 })
 
 exports.adminBroadcast = adminCall('broadcast', async (request) => {
-  const { title, body } = validateBroadcast(request.data)
-  const docsSnap = await getFirestore().collection('users').get()
-  const tokens = []
+  const { title, body, url } = validateBroadcast(request.data)
+  const fs = getFirestore()
+
+  // Persist first — record survives even if FCM fails
+  const notifRef = await fs.collection('notifications').add({
+    type: 'broadcast',
+    title,
+    body,
+    url,
+    toUid: null,
+    createdAt: FieldValue.serverTimestamp(),
+    createdBy: request.auth.uid,
+    push: null,
+  })
+  const tag = `bubu-bcast-${notifRef.id}`
+
+  const docsSnap = await fs.collection('users').get()
+  const tokenOwners = new Map() // token -> uid, for stale-token pruning
   for (const doc of docsSnap.docs) {
-    tokens.push(...Object.keys(doc.data()?.fcmTokens || {}))
+    for (const t of Object.keys(doc.data()?.fcmTokens || {})) tokenOwners.set(t, doc.id)
   }
-  if (!tokens.length) return { data: { sent: 0, failed: 0, tokens: 0 }, target: 'all', params: { title } }
+  const tokens = [...tokenOwners.keys()]
 
   let sent = 0
   let failed = 0
+  const stale = []
   for (let i = 0; i < tokens.length; i += 500) {
     const batch = tokens.slice(i, i + 500)
     const res = await getMessaging().sendEachForMulticast({
       tokens: batch,
-      data: { title, body, url: '/home' },
+      data: { title, body, url, notifId: notifRef.id, tag },
       webpush: {
-        notification: { title, body, icon: '/icon-192.png', badge: '/icon-192.png', tag: 'bubu-admin' },
-        fcm_options: { link: '/home' },
+        notification: { title, body, icon: '/icon-192.png', badge: '/icon-192.png', tag },
+        fcm_options: { link: url },
       },
     })
     sent += res.successCount
     failed += res.failureCount
+    res.responses.forEach((r, j) => {
+      if (!r.success) {
+        const code = r.error?.code || ''
+        if (code.includes('registration-token-not-registered') || code.includes('invalid-argument')) {
+          stale.push(batch[j])
+        }
+      }
+    })
   }
-  return { data: { sent, failed, tokens: tokens.length }, target: 'all', params: { title, sent, failed } }
+
+  const staleByUid = {}
+  for (const t of stale) {
+    const uid = tokenOwners.get(t)
+    if (!uid) continue
+    ;(staleByUid[uid] ??= {})[`fcmTokens.${t}`] = FieldValue.delete()
+  }
+  await Promise.all(
+    Object.entries(staleByUid).map(([uid, updates]) =>
+      fs.doc(`users/${uid}`).update(updates).catch(() => {}),
+    ),
+  )
+
+  await notifRef.update({ push: { sent, failed, tokens: tokens.length } })
+  return { data: { sent, failed, tokens: tokens.length }, target: 'all', params: { title, sent, failed, pruned: stale.length } }
 })
