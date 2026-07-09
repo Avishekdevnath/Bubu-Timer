@@ -11,6 +11,7 @@ import { AdminDashboardTab } from '../features/admin/AdminDashboardTab.jsx'
 import { AdminRoomsTab } from '../features/admin/AdminRoomsTab.jsx'
 import { AdminBroadcastTab } from '../features/admin/AdminBroadcastTab.jsx'
 import { AdminEmailTab } from '../features/admin/AdminEmailTab.jsx'
+import { AdminRemindersTab } from '../features/admin/AdminRemindersTab.jsx'
 import { AdminLogsTab } from '../features/admin/AdminLogsTab.jsx'
 import { database } from '../lib/firebase.js'
 
@@ -27,6 +28,7 @@ const TABS = [
   { label: 'rooms', path: '/admin/rooms' },
   { label: 'broadcast', path: '/admin/broadcast' },
   { label: 'email', path: '/admin/email' },
+  { label: 'reminders', path: '/admin/reminders' },
   { label: 'logs', path: '/admin/logs' },
 ]
 
@@ -54,6 +56,7 @@ export function AdminPage({ showToast, currentUser }) {
         <Route path="rooms" element={<AdminRoomsTab showToast={showToast} />} />
         <Route path="broadcast" element={<AdminBroadcastTab showToast={showToast} />} />
         <Route path="email" element={<AdminEmailTab showToast={showToast} />} />
+        <Route path="reminders" element={<AdminRemindersTab showToast={showToast} />} />
         <Route path="logs" element={<AdminLogsTab currentUser={currentUser} />} />
       </Routes>
     </div>
