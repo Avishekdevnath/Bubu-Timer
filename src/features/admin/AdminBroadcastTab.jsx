@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore'
-import { ChevronDown, ChevronUp, FlaskConical, Megaphone, Search, Send, Trash2, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, FlaskConical, Megaphone, Send, Trash2 } from 'lucide-react'
 import { auth, firestore } from '../../lib/firebase.js'
 import { AppModal } from '../../components/AppModal.jsx'
+import { UserPicker } from '../../components/UserPicker.jsx'
 import { broadcast, deleteNotification, listUsers, updateNotification } from './adminApi.js'
-import { filterUsers } from './userStats.js'
 
 function relTime(ts) {
   const ms = ts?.toMillis ? ts.toMillis() : ts || 0
@@ -23,7 +23,6 @@ export function AdminBroadcastTab({ showToast }) {
   const [body, setBody] = useState('')
   const [url, setUrl] = useState('')
   const [users, setUsers] = useState(null)
-  const [targetSearch, setTargetSearch] = useState('')
   const [targetUser, setTargetUser] = useState(null)
   const [sending, setSending] = useState(false)
   const [testSending, setTestSending] = useState(false)
@@ -59,15 +58,13 @@ export function AdminBroadcastTab({ showToast }) {
     listUsers().then((res) => setUsers(res.users)).catch(() => {})
   }, [])
 
-  const targetMatches = users && targetSearch.trim() ? filterUsers(users, targetSearch).slice(0, 6) : []
-
   async function doSend() {
     setSending(true)
     try {
       const res = await broadcast(title.trim(), body.trim(), url.trim() || undefined, targetUser?.uid || undefined)
       showToast(`Sent to ${res.sent}/${res.tokens} devices${res.failed ? ` (${res.failed} failed)` : ''}`)
       lastSentRef.current = { title: title.trim(), at: Date.now() }
-      setTitle(''); setBody(''); setUrl(''); setTargetUser(null); setTargetSearch('')
+      setTitle(''); setBody(''); setUrl(''); setTargetUser(null)
     } catch (err) {
       showToast(`Broadcast failed: ${err.message}`)
     } finally {
@@ -174,35 +171,7 @@ export function AdminBroadcastTab({ showToast }) {
             value={body} onChange={(e) => setBody(e.target.value)} />
           <input className="field-in" placeholder="Link route (default /home)"
             value={url} onChange={(e) => setUrl(e.target.value)} />
-          {targetUser ? (
-            <div className="flex items-center justify-between gap-2 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-stone-800 truncate">{targetUser.displayName || '(no name)'}</p>
-                <p className="text-xs text-stone-400 truncate">{targetUser.email}</p>
-              </div>
-              <button onClick={() => { setTargetUser(null); setTargetSearch('') }}
-                className="p-1.5 rounded-full text-stone-400 hover:text-stone-600 hover:bg-stone-100 shrink-0" aria-label="Clear target user">
-                <X size={14} />
-              </button>
-            </div>
-          ) : (
-            <div className="relative">
-              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-300" />
-              <input className="field-in pl-8" placeholder="Search user by name, email or uid (blank = everyone)"
-                value={targetSearch} onChange={(e) => setTargetSearch(e.target.value)} />
-              {targetMatches.length > 0 && (
-                <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-stone-200 rounded-xl shadow-lg overflow-hidden">
-                  {targetMatches.map((u) => (
-                    <button key={u.uid} onClick={() => { setTargetUser(u); setTargetSearch('') }}
-                      className="w-full text-left px-3 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0">
-                      <p className="text-sm font-medium text-stone-800 truncate">{u.displayName || '(no name)'}</p>
-                      <p className="text-xs text-stone-400 truncate">{u.email} · {u.uid}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          <UserPicker users={users} value={targetUser} onChange={setTargetUser} />
           <div className="flex gap-2">
             <button onClick={sendTest} disabled={testSending}
               className="flex-1 py-3 bg-white border border-stone-200 text-stone-700 text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2 hover:bg-stone-50">
