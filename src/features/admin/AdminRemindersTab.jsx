@@ -20,8 +20,7 @@ export function AdminRemindersTab({ showToast }) {
   const [body, setBody] = useState('')
   const [users, setUsers] = useState(null)
   const [targetUser, setTargetUser] = useState(null)
-  const [hour, setHour] = useState(8)
-  const [minute, setMinute] = useState(0)
+  const [timeValue, setTimeValue] = useState('08:00')
   const [endDate, setEndDate] = useState('')
   const [creating, setCreating] = useState(false)
   const [reminders, setReminders] = useState(null)
@@ -38,14 +37,16 @@ export function AdminRemindersTab({ showToast }) {
 
   async function create() {
     if (!title.trim() || !body.trim()) { showToast('Title and body required'); return }
+    if (!timeValue) { showToast('Time required'); return }
+    const [h, m] = timeValue.split(':').map(Number)
     setCreating(true)
     try {
       await createReminder({
         title: title.trim(),
         body: body.trim(),
         toUid: targetUser?.uid || null,
-        timeHour: Number(hour),
-        timeMinute: Number(minute),
+        timeHour: h,
+        timeMinute: m,
         endDate: endDate || null,
         active: true,
       })
@@ -88,15 +89,12 @@ export function AdminRemindersTab({ showToast }) {
             value={body} onChange={(e) => setBody(e.target.value)} />
           <UserPicker users={users} value={targetUser} onChange={setTargetUser} />
           <div className="flex gap-2">
-            <select value={hour} onChange={(e) => setHour(e.target.value)} className="field-in w-auto" aria-label="Hour">
-              {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{pad2(h)}</option>)}
-            </select>
-            <select value={minute} onChange={(e) => setMinute(e.target.value)} className="field-in w-auto" aria-label="Minute">
-              {[0, 15, 30, 45].map((m) => <option key={m} value={m}>{pad2(m)}</option>)}
-            </select>
+            <input type="time" className="field-in w-auto" value={timeValue} onChange={(e) => setTimeValue(e.target.value)}
+              aria-label="Time (any hour and minute, repeats daily)" />
             <input type="date" className="field-in flex-1" value={endDate} onChange={(e) => setEndDate(e.target.value)}
               aria-label="End date (optional, blank = forever)" />
           </div>
+          <p className="text-xs text-stone-400 px-1">Repeats every day at this time. Fires within 15 minutes of it — exact minute isn't guaranteed.</p>
           <button onClick={create} disabled={creating}
             className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
             <AlarmClock size={14} /> {creating ? 'Creating…' : 'Create reminder'}
