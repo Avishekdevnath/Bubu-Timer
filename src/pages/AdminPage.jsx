@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Route, Routes, useNavigate } from 'react-router-dom'
 import { onValue, ref } from 'firebase/database'
-import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Download, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, ShieldOff, Trash2, RotateCcw } from 'lucide-react'
+import { ArrowDown, ArrowUp, Ban, ChevronDown, ChevronUp, Download, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, ShieldOff, Trash2, RotateCcw } from 'lucide-react'
 import { AppModal } from '../components/AppModal.jsx'
 import { SkeletonRows } from '../components/Skeleton.jsx'
 import { CopyButton } from '../components/CopyButton.jsx'
@@ -78,6 +78,9 @@ function UsersTab({ showToast, currentUser }) {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState('name')
   const [sortDir, setSortDir] = useState('asc')
+  const [selected, setSelected] = useState(() => new Set())
+  const [bulkConfirm, setBulkConfirm] = useState(null) // 'disable' | 'delete'
+  const [bulkRunning, setBulkRunning] = useState(false)
 
   async function refresh() {
     setBusy(true)
@@ -159,6 +162,38 @@ function UsersTab({ showToast, currentUser }) {
     }
   }
 
+  function toggleSelect(uid) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(uid)) next.delete(uid)
+      else next.add(uid)
+      return next
+    })
+  }
+
+  function toggleSelectAll(selectableUids) {
+    setSelected((prev) => (prev.size === selectableUids.length ? new Set() : new Set(selectableUids)))
+  }
+
+  async function runBulk() {
+    const uids = [...selected]
+    setBulkRunning(true)
+    let failed = 0
+    for (const uid of uids) {
+      try {
+        if (bulkConfirm === 'delete') await deleteUser(uid)
+        else await setUserDisabled(uid, true)
+      } catch {
+        failed++
+      }
+    }
+    showToast(`${bulkConfirm === 'delete' ? 'Deleted' : 'Disabled'} ${uids.length - failed}/${uids.length} accounts${failed ? ` (${failed} failed)` : ''}`)
+    setBulkConfirm(null)
+    setSelected(new Set())
+    setBulkRunning(false)
+    await refresh()
+  }
+
   function exportCsv() {
     const csv = usersToCsv(visibleUsers)
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -225,6 +260,32 @@ function UsersTab({ showToast, currentUser }) {
           {sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
         </button>
       </div>
+      {users !== null && visibleUsers.length > 0 && (() => {
+        const selectableUids = visibleUsers.filter((u) => u.uid !== currentUser?.uid).map((u) => u.uid)
+        return (
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <label className="flex items-center gap-1.5 text-xs text-stone-500 cursor-pointer">
+              <input type="checkbox"
+                checked={selectableUids.length > 0 && selected.size === selectableUids.length}
+                onChange={() => toggleSelectAll(selectableUids)} />
+              Select all
+            </label>
+            {selected.size > 0 && (
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="text-xs text-stone-500">{selected.size} selected</span>
+                <button onClick={() => setBulkConfirm('disable')}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-red-500 border border-red-200 px-3 py-1.5 rounded-full hover:bg-red-50">
+                  <Ban size={12} /> Disable selected
+                </button>
+                <button onClick={() => setBulkConfirm('delete')}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-white bg-red-600 px-3 py-1.5 rounded-full hover:bg-red-700">
+                  <Trash2 size={12} /> Delete selected
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })()}
       {users === null ? <SkeletonRows count={4} /> : <div className="space-y-2">
         {visibleUsers.map((u) => {
           const expanded = expandedUid === u.uid
@@ -233,6 +294,10 @@ function UsersTab({ showToast, currentUser }) {
           return (
             <div key={u.uid} className="bg-white border border-stone-100 rounded-2xl shadow-sm p-4">
               <div className="flex items-center justify-between gap-3">
+                {u.uid !== currentUser?.uid && (
+                  <input type="checkbox" className="shrink-0" checked={selected.has(u.uid)}
+                    onChange={() => toggleSelect(u.uid)} aria-label={`Select ${u.email}`} />
+                )}
                 <button onClick={() => toggleExpand(u)} className="min-w-0 text-left flex-1">
                   <p className="text-sm font-semibold text-stone-800 truncate flex items-center gap-1.5">
                     {u.displayName || '(no name)'}
@@ -333,6 +398,20 @@ function UsersTab({ showToast, currentUser }) {
           <button onClick={runConfirm} disabled={busy || !deleteArmed}
             className={`w-full py-3 mt-2 text-white text-sm font-semibold rounded-xl disabled:opacity-40 ${confirm.kind === 'disable' && confirm.user.disabled ? 'bg-emerald-600' : 'bg-red-600'}`}>
             {confirm.kind === 'reset' ? 'Reset state' : confirm.kind === 'delete' ? 'Delete forever' : (confirm.user.disabled ? 'Enable' : 'Disable')}
+          </button>
+        </AppModal>
+      )}
+
+      {bulkConfirm && (
+        <AppModal title={bulkConfirm === 'delete' ? `Delete ${selected.size} accounts?` : `Disable ${selected.size} accounts?`} onClose={() => setBulkConfirm(null)}>
+          <p className="text-sm text-stone-500 mb-3">
+            {bulkConfirm === 'delete'
+              ? 'Permanently deletes login, cloud data and room membership for every selected account. Cannot be undone.'
+              : 'Blocks every selected account from signing in and immediately ends any active sessions on their devices.'}
+          </p>
+          <button onClick={runBulk} disabled={bulkRunning}
+            className="w-full py-3 bg-red-600 text-white text-sm font-semibold rounded-xl disabled:opacity-40">
+            {bulkRunning ? 'Working…' : (bulkConfirm === 'delete' ? 'Delete selected' : 'Disable selected')}
           </button>
         </AppModal>
       )}
