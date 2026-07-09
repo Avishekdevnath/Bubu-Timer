@@ -3,6 +3,7 @@ import { NavLink, Route, Routes, useNavigate } from 'react-router-dom'
 import { onValue, ref } from 'firebase/database'
 import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronUp, Copy, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, ShieldOff, Trash2, RotateCcw } from 'lucide-react'
 import { AppModal } from '../components/AppModal.jsx'
+import { SkeletonRows } from '../components/Skeleton.jsx'
 import { listUsers, resetUser, deleteUser, setUserDisabled, broadcast, updateUserProfile, createUser } from '../features/admin/adminApi.js'
 import { filterUsers, sortUsers } from '../features/admin/userStats.js'
 import { AdminDashboardTab } from '../features/admin/AdminDashboardTab.jsx'
@@ -208,8 +209,8 @@ function UsersTab({ showToast, currentUser }) {
           {sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
         </button>
       </div>
-      <div className="space-y-2">
-        {(visibleUsers || []).map((u) => {
+      {users === null ? <SkeletonRows count={4} /> : <div className="space-y-2">
+        {visibleUsers.map((u) => {
           const expanded = expandedUid === u.uid
           const activeRoom = activeRoomFor(u.uid)
           const devices = Object.entries(u.fcmTokens || {})
@@ -294,7 +295,7 @@ function UsersTab({ showToast, currentUser }) {
             </div>
           )
         })}
-      </div>
+      </div>}
 
       {confirm && (
         <AppModal title={confirm.kind === 'reset' ? 'Reset user state?' : confirm.kind === 'delete' ? 'Delete account?' : (confirm.user.disabled ? 'Enable account?' : 'Disable account?')} onClose={() => setConfirm(null)}>

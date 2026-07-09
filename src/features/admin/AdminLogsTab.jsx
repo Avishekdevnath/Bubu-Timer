@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
 import { ChevronDown, ChevronUp, FileClock } from 'lucide-react'
 import { firestore } from '../../lib/firebase.js'
+import { SkeletonRows } from '../../components/Skeleton.jsx'
 
 function relTime(ts) {
   const ms = ts?.toMillis ? ts.toMillis() : ts || 0
@@ -27,6 +28,7 @@ export function AdminLogsTab() {
   return (
     <div>
       <p className="text-xs text-stone-400 mb-3">{logs === null ? 'Loading…' : `${logs.length} entries`}</p>
+      {logs === null && <SkeletonRows count={4} height="h-14" />}
       {logs?.length === 0 && (
         <div className="flex flex-col items-center gap-3 py-16 text-stone-300">
           <FileClock size={36} strokeWidth={1.2} />

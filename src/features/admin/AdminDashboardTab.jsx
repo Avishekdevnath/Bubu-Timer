@@ -5,6 +5,7 @@ import { ChevronRight, MessageSquare, Radio, Smartphone, Users } from 'lucide-re
 import { database, firestore } from '../../lib/firebase.js'
 import { listUsers } from './adminApi.js'
 import { messagesToday } from './roomStats.js'
+import { Skeleton, SkeletonRows } from '../../components/Skeleton.jsx'
 
 function StatCard({ icon: Icon, label, value }) {
   return (
@@ -13,7 +14,7 @@ function StatCard({ icon: Icon, label, value }) {
         <Icon size={14} />
         <p className="text-[10px] font-bold tracking-widest uppercase">{label}</p>
       </div>
-      <p className="text-2xl font-light text-stone-800">{value ?? '—'}</p>
+      {value === null ? <Skeleton className="h-7 w-10" /> : <p className="text-2xl font-light text-stone-800">{value}</p>}
     </div>
   )
 }
@@ -22,7 +23,7 @@ export function AdminDashboardTab({ showToast, onOpenLogs }) {
   const [userCount, setUserCount] = useState(null)
   const [deviceCount, setDeviceCount] = useState(null)
   const [rooms, setRooms] = useState(null)
-  const [recentLogs, setRecentLogs] = useState([])
+  const [recentLogs, setRecentLogs] = useState(null)
 
   useEffect(() => {
     listUsers().then((res) => {
@@ -58,14 +59,18 @@ export function AdminDashboardTab({ showToast, onOpenLogs }) {
             View all <ChevronRight size={12} />
           </button>
         </div>
-        <div className="bg-white border border-stone-100 rounded-2xl shadow-sm divide-y divide-stone-100">
-          {recentLogs.length === 0 && <p className="text-sm text-stone-400 p-4">No activity yet</p>}
-          {recentLogs.map((log) => (
-            <div key={log.id} className="p-3 flex items-center justify-between gap-3">
-              <p className="text-sm text-stone-700">{log.action} <span className="text-stone-400">→ {log.target || '—'}</span></p>
-            </div>
-          ))}
-        </div>
+        {recentLogs === null ? (
+          <SkeletonRows count={3} height="h-11" />
+        ) : (
+          <div className="bg-white border border-stone-100 rounded-2xl shadow-sm divide-y divide-stone-100">
+            {recentLogs.length === 0 && <p className="text-sm text-stone-400 p-4">No activity yet</p>}
+            {recentLogs.map((log) => (
+              <div key={log.id} className="p-3 flex items-center justify-between gap-3">
+                <p className="text-sm text-stone-700">{log.action} <span className="text-stone-400">→ {log.target || '—'}</span></p>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   )

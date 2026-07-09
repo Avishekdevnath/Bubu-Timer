@@ -3,6 +3,7 @@ import { onValue, ref } from 'firebase/database'
 import { ChevronDown, ChevronUp, DoorClosed, Eraser, Pencil, Plus, Search, UserX } from 'lucide-react'
 import { database } from '../../lib/firebase.js'
 import { AppModal } from '../../components/AppModal.jsx'
+import { SkeletonRows } from '../../components/Skeleton.jsx'
 import { closeRoom, clearChat, kickMember, setRoomSlot } from './adminApi.js'
 import { filterRooms, roomTimestamps } from './roomStats.js'
 
@@ -100,7 +101,7 @@ export function AdminRoomsTab({ showToast }) {
         </button>
         <p className="text-xs text-stone-400 shrink-0">{rooms === null ? 'Loading…' : `${entries.length} rooms`}</p>
       </div>
-      {entries.map(([code, room]) => {
+      {rooms === null ? <SkeletonRows count={3} /> : entries.map(([code, room]) => {
         const members = ['A', 'B'].map((s) => room?.[s]?.name || room?.[s]?.uid).filter(Boolean)
         const msgCount = Object.keys(room?.chat || {}).length
         const expanded = expandedCode === code
