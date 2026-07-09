@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'
-import { AlarmClock, Pause, Pencil, Play, Send, Trash2, X } from 'lucide-react'
+import { AlarmClock, Pause, Pencil, Play, Plus, Send, Trash2 } from 'lucide-react'
 import { firestore } from '../../lib/firebase.js'
 import { AppModal } from '../../components/AppModal.jsx'
 import { SkeletonRows } from '../../components/Skeleton.jsx'
@@ -37,6 +37,7 @@ export function AdminRemindersTab({ showToast }) {
   const [deleteConfirm, setDeleteConfirm] = useState(null) // reminder id
   const [sendingId, setSendingId] = useState(null)
   const [editingId, setEditingId] = useState(null)
+  const [formOpen, setFormOpen] = useState(false)
 
   useEffect(() => {
     listUsers().then((res) => setUsers(res.users)).catch(() => {})
@@ -49,7 +50,12 @@ export function AdminRemindersTab({ showToast }) {
 
   function resetForm() {
     setTitle(''); setBody(''); setTargetUsers([]); setTimeValue('08:00')
-    setStartDate(''); setEndDate(''); setForever(true); setEditingId(null)
+    setStartDate(''); setEndDate(''); setForever(true); setEditingId(null); setFormOpen(false)
+  }
+
+  function openCreate() {
+    resetForm()
+    setFormOpen(true)
   }
 
   function startEdit(r) {
@@ -62,7 +68,7 @@ export function AdminRemindersTab({ showToast }) {
     setStartDate(r.startDate || '')
     setEndDate(r.endDate || '')
     setForever(!r.endDate)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setFormOpen(true)
   }
 
   async function submit() {
@@ -130,57 +136,12 @@ export function AdminRemindersTab({ showToast }) {
     <div className="space-y-4">
       <section>
         <div className="flex items-center justify-between mb-2 px-1">
-          <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase">
-            {editingId ? 'Edit reminder' : 'Create reminder'}
-          </p>
-          {editingId && (
-            <button onClick={resetForm} className="flex items-center gap-1 text-xs font-semibold text-stone-400 hover:text-stone-600">
-              <X size={12} /> Cancel edit
-            </button>
-          )}
-        </div>
-        <div className="bg-white border border-stone-100 rounded-2xl shadow-sm p-4 space-y-2">
-          <input className="field-in" placeholder="Title (e.g. Take your medicine)" maxLength={100}
-            value={title} onChange={(e) => setTitle(e.target.value)} />
-          <textarea className="field-in resize-y" rows={8} placeholder="Message (max 20,000 characters)" maxLength={20000}
-            value={body} onChange={(e) => setBody(e.target.value)} />
-          <p className="text-xs text-right text-stone-300 px-1 -mt-1">{body.length.toLocaleString()} / 20,000</p>
-          <MultiUserPicker users={users} value={targetUsers} onChange={setTargetUsers} />
-          <input type="time" className="field-in w-auto" value={timeValue} onChange={(e) => setTimeValue(e.target.value)}
-            aria-label="Time (any hour and minute, repeats daily)" />
-          <div className="flex gap-2">
-            <label className="flex-1">
-              <span className="block text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-1 px-1">Starts</span>
-              <input type="date" className="field-in w-full" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                aria-label="Start date (optional, blank = starts today)" placeholder="Today" />
-            </label>
-            <label className="flex-1">
-              <span className="block text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-1 px-1">Ends</span>
-              <input type="date" className="field-in w-full disabled:opacity-40" value={endDate} disabled={forever}
-                onChange={(e) => setEndDate(e.target.value)} aria-label="End date" />
-            </label>
-          </div>
-          <label className="flex items-center gap-2 px-1 text-sm text-stone-600">
-            <input type="checkbox" checked={forever} onChange={(e) => setForever(e.target.checked)} />
-            Repeat forever (until stopped manually)
-          </label>
-          <p className="text-xs text-stone-400 px-1">Repeats every day at this time. Fires within 15 minutes of it — exact minute isn't guaranteed. Blank start = begins today. Use the send icon on a reminder below to fire it immediately for testing.</p>
-          <p className="text-xs text-stone-400 px-1 leading-relaxed">
-            Push shows a short preview; the email gets the full message. Emoji work anywhere. Formatting:{' '}
-            <code># heading</code>, <code>**bold**</code>, <code>*italic*</code>, <code>~~strikethrough~~</code>,{' '}
-            <code>`code`</code>, <code>[link](https://url)</code>, <code>&gt; quote</code>, <code>---</code> divider,{' '}
-            <code>- </code> bullet list, <code>1. </code> numbered list.
-          </p>
-          <button onClick={submit} disabled={creating}
-            className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
-            <AlarmClock size={14} />
-            {creating ? (editingId ? 'Saving…' : 'Creating…') : (editingId ? 'Save changes' : 'Create reminder')}
+          <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase">Reminders</p>
+          <button onClick={openCreate}
+            className="flex items-center gap-1.5 text-xs font-semibold text-white bg-stone-900 px-3 py-1.5 rounded-full hover:bg-stone-800">
+            <Plus size={12} /> Create reminder
           </button>
         </div>
-      </section>
-
-      <section>
-        <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Reminders</p>
         {reminders === null && <SkeletonRows count={3} />}
         {reminders?.length === 0 && <p className="text-xs text-stone-400 px-1">No reminders yet</p>}
         <div className="space-y-2">
@@ -239,6 +200,49 @@ export function AdminRemindersTab({ showToast }) {
           <button onClick={runDelete} className="w-full py-3 bg-red-600 text-white text-sm font-semibold rounded-xl">
             Delete
           </button>
+        </AppModal>
+      )}
+
+      {formOpen && (
+        <AppModal title={editingId ? 'Edit reminder' : 'Create reminder'} onClose={resetForm}>
+          <div className="space-y-2">
+            <input className="field-in" placeholder="Title (e.g. Take your medicine)" maxLength={100}
+              value={title} onChange={(e) => setTitle(e.target.value)} />
+            <textarea className="field-in resize-y" rows={8} placeholder="Message (max 20,000 characters)" maxLength={20000}
+              value={body} onChange={(e) => setBody(e.target.value)} />
+            <p className="text-xs text-right text-stone-300 -mt-1">{body.length.toLocaleString()} / 20,000</p>
+            <MultiUserPicker users={users} value={targetUsers} onChange={setTargetUsers} />
+            <input type="time" className="field-in w-auto" value={timeValue} onChange={(e) => setTimeValue(e.target.value)}
+              aria-label="Time (any hour and minute, repeats daily)" />
+            <div className="flex gap-2">
+              <label className="flex-1">
+                <span className="block text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-1">Starts</span>
+                <input type="date" className="field-in w-full" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                  aria-label="Start date (optional, blank = starts today)" placeholder="Today" />
+              </label>
+              <label className="flex-1">
+                <span className="block text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-1">Ends</span>
+                <input type="date" className="field-in w-full disabled:opacity-40" value={endDate} disabled={forever}
+                  onChange={(e) => setEndDate(e.target.value)} aria-label="End date" />
+              </label>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-stone-600">
+              <input type="checkbox" checked={forever} onChange={(e) => setForever(e.target.checked)} />
+              Repeat forever (until stopped manually)
+            </label>
+            <p className="text-xs text-stone-400">Repeats every day at this time. Fires within 15 minutes of it — exact minute isn't guaranteed. Blank start = begins today.</p>
+            <p className="text-xs text-stone-400 leading-relaxed">
+              Push shows a short preview; the email gets the full message. Emoji work anywhere. Formatting:{' '}
+              <code># heading</code>, <code>**bold**</code>, <code>*italic*</code>, <code>~~strikethrough~~</code>,{' '}
+              <code>`code`</code>, <code>[link](https://url)</code>, <code>&gt; quote</code>, <code>---</code> divider,{' '}
+              <code>- </code> bullet list, <code>1. </code> numbered list.
+            </p>
+            <button onClick={submit} disabled={creating}
+              className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
+              <AlarmClock size={14} />
+              {creating ? (editingId ? 'Saving…' : 'Creating…') : (editingId ? 'Save changes' : 'Create reminder')}
+            </button>
+          </div>
         </AppModal>
       )}
     </div>

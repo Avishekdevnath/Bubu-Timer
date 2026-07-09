@@ -1,12 +1,20 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import {
+  AlarmClock,
   Bell,
+  ChevronDown,
+  ChevronUp,
   Home,
+  LayoutDashboard,
+  Mail,
   MessageCircle,
+  ScrollText,
+  Send,
   Settings,
   ShieldCheck,
   Timer,
+  Users,
 } from 'lucide-react'
 import {
   createUserWithEmailAndPassword,
@@ -61,6 +69,16 @@ const tabs = [
   { label: 'Settings', path: '/settings', icon: Settings },
 ]
 
+const ADMIN_TABS = [
+  { label: 'Dashboard', path: '/admin', icon: LayoutDashboard, end: true },
+  { label: 'Users', path: '/admin/users', icon: Users, end: false },
+  { label: 'Rooms', path: '/admin/rooms', icon: MessageCircle, end: false },
+  { label: 'Broadcast', path: '/admin/broadcast', icon: Send, end: false },
+  { label: 'Email', path: '/admin/email', icon: Mail, end: false },
+  { label: 'Reminders', path: '/admin/reminders', icon: AlarmClock, end: false },
+  { label: 'Logs', path: '/admin/logs', icon: ScrollText, end: false },
+]
+
 function App() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -79,6 +97,7 @@ function App() {
   const [authTab, setAuthTab] = useState('login')
   const [currentUser, setCurrentUser] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false)
   const [authLoading, setAuthLoading] = useState(true)
   const [authForms, setAuthForms] = useState({
     loginEmail: '',
@@ -670,21 +689,39 @@ function App() {
               )}
             </NavLink>
           )}
-          {isAdmin && (
-            <NavLink to="/admin"
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all w-full ${
-                  isActive ? 'bg-amber-100 text-amber-900' : 'text-amber-600 hover:bg-amber-50 hover:text-amber-800'
-                }`
-              }
-            >
-              {({ isActive }) => (
-                <div className="flex items-center gap-3">
-                  <ShieldCheck size={18} strokeWidth={isActive ? 2.5 : 1.5} />Admin
-                </div>
-              )}
-            </NavLink>
-          )}
+          {isAdmin && (() => {
+            const inAdmin = location.pathname.startsWith('/admin')
+            const expanded = adminMenuOpen || inAdmin
+            return (
+              <div>
+                <button onClick={() => setAdminMenuOpen((v) => !v)}
+                  className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all w-full ${
+                    inAdmin ? 'bg-amber-100 text-amber-900' : 'text-amber-600 hover:bg-amber-50 hover:text-amber-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <ShieldCheck size={18} strokeWidth={inAdmin ? 2.5 : 1.5} />Admin
+                  </div>
+                  {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+                {expanded && (
+                  <div className="ml-3 pl-3 border-l border-amber-100 mt-0.5 space-y-0.5">
+                    {ADMIN_TABS.map(({ label, path, icon: Icon, end }) => (
+                      <NavLink key={path} to={path} end={end}
+                        className={({ isActive }) =>
+                          `flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                            isActive ? 'bg-amber-50 text-amber-900' : 'text-stone-500 hover:bg-stone-50 hover:text-stone-800'
+                          }`
+                        }
+                      >
+                        <Icon size={14} />{label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </nav>
         <div className="p-4 border-t border-stone-100">
           <NavLink to="/settings" className="flex items-center gap-3 bg-white px-3 py-2 rounded-xl border border-stone-100 shadow-sm hover:bg-stone-50 hover:border-stone-200 transition-colors cursor-pointer">

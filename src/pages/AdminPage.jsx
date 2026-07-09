@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { NavLink, Route, Routes, useNavigate } from 'react-router-dom'
+import { Route, Routes, useNavigate } from 'react-router-dom'
 import { onValue, ref } from 'firebase/database'
 import { ArrowDown, ArrowUp, Ban, ChevronDown, ChevronUp, Download, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, ShieldOff, Trash2, RotateCcw } from 'lucide-react'
 import { AppModal } from '../components/AppModal.jsx'
@@ -22,33 +22,13 @@ const SORT_OPTIONS = [
   { key: 'devices', label: 'Devices' },
 ]
 
-const TABS = [
-  { label: 'dashboard', path: '/admin' },
-  { label: 'users', path: '/admin/users' },
-  { label: 'rooms', path: '/admin/rooms' },
-  { label: 'broadcast', path: '/admin/broadcast' },
-  { label: 'email', path: '/admin/email' },
-  { label: 'reminders', path: '/admin/reminders' },
-  { label: 'logs', path: '/admin/logs' },
-]
-
 export function AdminPage({ showToast, currentUser }) {
   const navigate = useNavigate()
   return (
     <div className="w-full px-4 md:px-6 pt-6">
-      <div className="flex items-center gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-5">
         <ShieldCheck size={20} className="text-stone-700" />
         <h2 className="text-2xl font-light tracking-tight text-stone-800">Admin</h2>
-      </div>
-      <div className="flex gap-2 mb-5 flex-wrap">
-        {TABS.map(({ label, path }) => (
-          <NavLink key={label} to={path} end={path === '/admin'}
-            className={({ isActive }) =>
-              `px-4 py-2 rounded-full text-sm font-semibold capitalize transition-colors ${isActive ? 'bg-stone-900 text-white' : 'bg-white border border-stone-200 text-stone-500 hover:bg-stone-50'}`
-            }>
-            {label}
-          </NavLink>
-        ))}
       </div>
       <Routes>
         <Route index element={<AdminDashboardTab showToast={showToast} onOpenLogs={() => navigate('/admin/logs')} />} />
