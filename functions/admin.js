@@ -4,7 +4,7 @@ const { getDatabase } = require('firebase-admin/database')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
 const logger = require('firebase-functions/logger')
-const { requireString, validateBroadcast } = require('./adminValidation.js')
+const { requireString, requireSlot, validateBroadcast } = require('./adminValidation.js')
 
 const REGION = 'asia-southeast1'
 
@@ -128,6 +128,13 @@ exports.adminCloseRoom = adminCall('closeRoom', async (request) => {
   return { target: code }
 })
 
+exports.adminKickMember = adminCall('kickMember', async (request) => {
+  const code = requireString(request.data?.code, 'code', 50)
+  const slot = requireSlot(request.data?.slot)
+  await getDatabase().ref(`/rooms/${code}/${slot}`).remove()
+  return { target: code, params: { slot } }
+})
+
 exports.adminClearChat = adminCall('clearChat', async (request) => {
   const code = requireString(request.data?.code, 'code', 50)
   await getDatabase().ref(`/rooms/${code}/chat`).remove()
@@ -135,7 +142,7 @@ exports.adminClearChat = adminCall('clearChat', async (request) => {
 })
 
 exports.adminBroadcast = adminCall('broadcast', async (request) => {
-  const { title, body, url } = validateBroadcast(request.data)
+  const { title, body, url, toUid } = validateBroadcast(request.data)
   const fs = getFirestore()
 
   // Persist first — record survives even if FCM fails
@@ -144,16 +151,19 @@ exports.adminBroadcast = adminCall('broadcast', async (request) => {
     title,
     body,
     url,
-    toUid: null,
+    toUid,
     createdAt: FieldValue.serverTimestamp(),
     createdBy: request.auth.uid,
     push: null,
   })
   const tag = `bubu-bcast-${notifRef.id}`
 
-  const docsSnap = await fs.collection('users').get()
+  const docsSnap = toUid
+    ? [await fs.collection('users').doc(toUid).get()]
+    : (await fs.collection('users').get()).docs
   const tokenOwners = new Map() // token -> uid, for stale-token pruning
-  for (const doc of docsSnap.docs) {
+  for (const doc of docsSnap) {
+    if (!doc.exists) continue
     for (const t of Object.keys(doc.data()?.fcmTokens || {})) tokenOwners.set(t, doc.id)
   }
   const tokens = [...tokenOwners.keys()]
@@ -196,5 +206,5 @@ exports.adminBroadcast = adminCall('broadcast', async (request) => {
   )
 
   await notifRef.update({ push: { sent, failed, tokens: tokens.length } })
-  return { data: { sent, failed, tokens: tokens.length }, target: 'all', params: { title, sent, failed, pruned: stale.length } }
+  return { data: { sent, failed, tokens: tokens.length }, target: toUid || 'all', params: { title, sent, failed, pruned: stale.length, toUid } }
 })
