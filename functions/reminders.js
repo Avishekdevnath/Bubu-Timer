@@ -1,9 +1,11 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler')
+const { HttpsError } = require('firebase-functions/v2/https')
 const { defineSecret } = require('firebase-functions/params')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
 const logger = require('firebase-functions/logger')
-const { escapeHtml, markdownToHtml } = require('./adminValidation.js')
+const { requireString, escapeHtml, markdownToHtml } = require('./adminValidation.js')
+const { adminCall } = require('./admin.js')
 
 const REGION = 'asia-southeast1'
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY')
@@ -200,4 +202,21 @@ const checkReminders = onSchedule(
   },
 )
 
-module.exports = { isDueNow, isExpired, isNotStarted, truncateForPush, checkReminders }
+// Manual trigger for admins: fires push + email for one reminder right now,
+// bypassing the schedule/lastFiredDate/startDate/endDate checks entirely.
+// Does not touch lastFiredDate, so it never disturbs the normal daily schedule.
+const adminSendReminderNow = adminCall('sendReminderNow', async (request) => {
+  const id = requireString(request.data?.id, 'id', 200)
+  const fs = getFirestore()
+  const doc = await fs.doc(`reminders/${id}`).get()
+  if (!doc.exists) throw new HttpsError('not-found', 'Reminder not found')
+  const reminder = doc.data()
+  const { dateStr } = dhakaParts(new Date())
+
+  await sendReminderPush(fs, reminder, doc.id, dateStr)
+  await sendReminderEmail(fs, reminder)
+
+  return { data: { ok: true }, target: id, params: { title: reminder.title } }
+}, { secrets: [RESEND_API_KEY] })
+
+module.exports = { isDueNow, isExpired, isNotStarted, truncateForPush, checkReminders, adminSendReminderNow }

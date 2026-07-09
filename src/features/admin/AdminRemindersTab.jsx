@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'
-import { AlarmClock, Pause, Play, Trash2 } from 'lucide-react'
+import { AlarmClock, Pause, Play, Send, Trash2 } from 'lucide-react'
 import { firestore } from '../../lib/firebase.js'
 import { AppModal } from '../../components/AppModal.jsx'
 import { SkeletonRows } from '../../components/Skeleton.jsx'
 import { MultiUserPicker } from '../../components/MultiUserPicker.jsx'
-import { createReminder, deleteReminder, listUsers, setReminderActive } from './adminApi.js'
+import { createReminder, deleteReminder, listUsers, sendReminderNow, setReminderActive } from './adminApi.js'
 
 function pad2(n) { return String(n).padStart(2, '0') }
 
@@ -28,6 +28,7 @@ export function AdminRemindersTab({ showToast }) {
   const [creating, setCreating] = useState(false)
   const [reminders, setReminders] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null) // reminder id
+  const [sendingId, setSendingId] = useState(null)
 
   useEffect(() => {
     listUsers().then((res) => setUsers(res.users)).catch(() => {})
@@ -72,6 +73,18 @@ export function AdminRemindersTab({ showToast }) {
     }
   }
 
+  async function sendNow(r) {
+    setSendingId(r.id)
+    try {
+      await sendReminderNow(r.id)
+      showToast(`Sent "${r.title}" now`)
+    } catch (err) {
+      showToast(`Send failed: ${err.message}`)
+    } finally {
+      setSendingId(null)
+    }
+  }
+
   async function runDelete() {
     try {
       await deleteReminder(deleteConfirm)
@@ -111,7 +124,7 @@ export function AdminRemindersTab({ showToast }) {
             <input type="checkbox" checked={forever} onChange={(e) => setForever(e.target.checked)} />
             Repeat forever (until stopped manually)
           </label>
-          <p className="text-xs text-stone-400 px-1">Repeats every day at this time. Fires within 15 minutes of it — exact minute isn't guaranteed. Blank start = begins today.</p>
+          <p className="text-xs text-stone-400 px-1">Repeats every day at this time. Fires within 15 minutes of it — exact minute isn't guaranteed. Blank start = begins today. Use the send icon on a reminder below to fire it immediately for testing.</p>
           <p className="text-xs text-stone-400 px-1 leading-relaxed">
             Push shows a short preview; the email gets the full message. Emoji work anywhere. Formatting:{' '}
             <code># heading</code>, <code>**bold**</code>, <code>*italic*</code>, <code>~~strikethrough~~</code>,{' '}
@@ -150,6 +163,11 @@ export function AdminRemindersTab({ showToast }) {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={() => sendNow(r)} disabled={sendingId === r.id}
+                      className="p-2 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50 disabled:opacity-40"
+                      title="Send now (test)" aria-label={`Send ${r.title} now`}>
+                      <Send size={14} className={sendingId === r.id ? 'animate-pulse' : ''} />
+                    </button>
                     <button onClick={() => toggleActive(r)}
                       className="p-2 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50"
                       title={r.active ? 'Pause' : 'Resume'} aria-label={r.active ? `Pause ${r.title}` : `Resume ${r.title}`}>

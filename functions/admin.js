@@ -332,3 +332,5 @@ exports.adminSendEmail = adminCall('sendEmail', async (request) => {
 
   return { data: { sent, failed, total: perRecipient.length }, target: toUid || 'all', params: { subject, sent, failed } }
 }, { secrets: [RESEND_API_KEY] })
+
+exports.adminCall = adminCall

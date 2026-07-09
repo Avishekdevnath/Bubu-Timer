@@ -113,5 +113,7 @@ exports.adminUpdateUserProfile = adminFns.adminUpdateUserProfile
 exports.adminCreateUser = adminFns.adminCreateUser
 exports.adminSendEmail = adminFns.adminSendEmail
 
-// Daily reminders (scheduled, no client-facing callable)
-exports.checkReminders = require('./reminders.js').checkReminders
+// Daily reminders (scheduled) + manual admin trigger
+const reminderFns = require('./reminders.js')
+exports.checkReminders = reminderFns.checkReminders
+exports.adminSendReminderNow = reminderFns.adminSendReminderNow
