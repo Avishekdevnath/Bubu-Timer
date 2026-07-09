@@ -695,7 +695,7 @@ function App() {
           <ErrorBoundary>
           <Suspense fallback={<div className="flex items-center justify-center h-32"><div className="w-6 h-6 rounded-full border-2 border-stone-300 border-t-stone-700 animate-spin" /></div>}>
           <Routes>
-            <Route path="/home" element={<HomePage />} />
+            <Route path="/home" element={<HomePage currentUser={currentUser} showToast={showToast} />} />
 <Route path="/" element={<TimerPage
                appState={appState} room={room}
                onStartItem={handleStartItem} onPause={openPauseNote} onDone={openDoneNote}

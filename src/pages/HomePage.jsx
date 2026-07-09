@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { NotifPermissionCard } from '../components/NotifPermissionCard.jsx'
 
 const TILES = [
   { label: 'Daily Plan', icon: '📅', path: '/', color: 'bg-blue-50 text-blue-700 border-blue-100' },
@@ -12,19 +13,20 @@ const TILES = [
   { label: 'Partner', icon: '👥', path: '/partner-settings', color: 'bg-pink-50 text-pink-700 border-pink-100' },
 ]
 
-export function HomePage() {
+export function HomePage({ currentUser, showToast }) {
   const navigate = useNavigate()
   return (
     <div className="w-full px-4 md:px-6 pt-6">
       <h2 className="text-2xl font-light tracking-tight text-stone-800 mb-1">Study Hub</h2>
       <p className="text-sm text-stone-400 mb-6">All your tools in one place</p>
-      <div className="grid grid-cols-3 gap-3">
+      <NotifPermissionCard currentUser={currentUser} showToast={showToast} />
+      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
         {TILES.map((tile) => (
           <button
             key={tile.label}
             disabled={tile.locked}
             onClick={() => tile.path && navigate(tile.path)}
-            className={`relative flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border shadow-sm transition-all aspect-square
+            className={`relative flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border shadow-sm transition-all aspect-square w-full
               ${tile.locked ? 'opacity-40 cursor-not-allowed' : 'hover:scale-[1.03] active:scale-[0.97]'}
               ${tile.color}`}
           >
