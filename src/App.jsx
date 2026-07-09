@@ -234,13 +234,20 @@ function App() {
         cloudUnsubRef.current = null
         setCurrentUser((prev) => (prev?.isGuest ? prev : null))
         setIsAdmin(false)
+        setAuthLoading(false)
         return
       }
       // Set user immediately so UI updates even if Firestore is slow/fails
       const baseProfile = { uid: user.uid, email: user.email, username: user.displayName || '', partnerName: '', photoURL: user.photoURL || '' }
       cloudUidRef.current = user.uid
       setCurrentUser(baseProfile)
-      user.getIdTokenResult().then((r) => setIsAdmin(r.claims.admin === true)).catch(() => setIsAdmin(false))
+      try {
+        const r = await user.getIdTokenResult()
+        setIsAdmin(r.claims.admin === true)
+      } catch {
+        setIsAdmin(false)
+      }
+      setAuthLoading(false)
       // Register for push notifications (fire-and-forget)
       registerPushToken(user.uid).catch(() => {})
       // Wire up Capacitor native push listeners (no-op in browser)
@@ -293,7 +300,6 @@ function App() {
         // Silently handle Firestore errors
       }
     })
-    setAuthLoading(false)
     return unsubscribe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
