@@ -41,6 +41,7 @@ export const createReminder = (data) =>
     lastFiredDate: null,
   })
 export const setReminderActive = (id, active) => updateDoc(doc(firestore, 'reminders', id), { active })
+export const updateReminder = (id, patch) => updateDoc(doc(firestore, 'reminders', id), patch)
 export const deleteReminder = (id) => deleteDoc(doc(firestore, 'reminders', id))
 // Fires push + email for this reminder right now — bypasses the schedule
 // entirely and never touches lastFiredDate, so it can't disturb the daily run.

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore'
-import { AlarmClock, Pause, Play, Send, Trash2 } from 'lucide-react'
+import { AlarmClock, Pause, Pencil, Play, Send, Trash2, X } from 'lucide-react'
 import { firestore } from '../../lib/firebase.js'
 import { AppModal } from '../../components/AppModal.jsx'
 import { SkeletonRows } from '../../components/Skeleton.jsx'
 import { MultiUserPicker } from '../../components/MultiUserPicker.jsx'
-import { createReminder, deleteReminder, listUsers, sendReminderNow, setReminderActive } from './adminApi.js'
+import { createReminder, deleteReminder, listUsers, sendReminderNow, setReminderActive, updateReminder } from './adminApi.js'
 
 function pad2(n) { return String(n).padStart(2, '0') }
 
@@ -36,6 +36,7 @@ export function AdminRemindersTab({ showToast }) {
   const [reminders, setReminders] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null) // reminder id
   const [sendingId, setSendingId] = useState(null)
+  const [editingId, setEditingId] = useState(null)
 
   useEffect(() => {
     listUsers().then((res) => setUsers(res.users)).catch(() => {})
@@ -46,26 +47,49 @@ export function AdminRemindersTab({ showToast }) {
     return onSnapshot(q, (snap) => setReminders(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {})
   }, [])
 
-  async function create() {
+  function resetForm() {
+    setTitle(''); setBody(''); setTargetUsers([]); setTimeValue('08:00')
+    setStartDate(''); setEndDate(''); setForever(true); setEditingId(null)
+  }
+
+  function startEdit(r) {
+    setEditingId(r.id)
+    setTitle(r.title)
+    setBody(r.body)
+    const targetUids = Array.isArray(r.toUid) ? r.toUid : (r.toUid ? [r.toUid] : [])
+    setTargetUsers((users || []).filter((u) => targetUids.includes(u.uid)))
+    setTimeValue(`${pad2(r.timeHour)}:${pad2(r.timeMinute)}`)
+    setStartDate(r.startDate || '')
+    setEndDate(r.endDate || '')
+    setForever(!r.endDate)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  async function submit() {
     if (!title.trim() || !body.trim()) { showToast('Title and body required'); return }
     if (!timeValue) { showToast('Time required'); return }
     const [h, m] = timeValue.split(':').map(Number)
+    const fields = {
+      title: title.trim(),
+      body: body.trim(),
+      toUid: targetUsers.length > 0 ? targetUsers.map((u) => u.uid) : null,
+      timeHour: h,
+      timeMinute: m,
+      startDate: startDate || null,
+      endDate: forever ? null : (endDate || null),
+    }
     setCreating(true)
     try {
-      await createReminder({
-        title: title.trim(),
-        body: body.trim(),
-        toUid: targetUsers.length > 0 ? targetUsers.map((u) => u.uid) : null,
-        timeHour: h,
-        timeMinute: m,
-        startDate: startDate || null,
-        endDate: forever ? null : (endDate || null),
-        active: true,
-      })
-      showToast('Reminder created')
-      setTitle(''); setBody(''); setTargetUsers([]); setStartDate(''); setEndDate(''); setForever(true)
+      if (editingId) {
+        await updateReminder(editingId, fields)
+        showToast('Reminder updated')
+      } else {
+        await createReminder({ ...fields, active: true })
+        showToast('Reminder created')
+      }
+      resetForm()
     } catch (err) {
-      showToast(`Create failed: ${err.message}`)
+      showToast(`${editingId ? 'Update' : 'Create'} failed: ${err.message}`)
     } finally {
       setCreating(false)
     }
@@ -105,7 +129,16 @@ export function AdminRemindersTab({ showToast }) {
   return (
     <div className="space-y-4">
       <section>
-        <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Create reminder</p>
+        <div className="flex items-center justify-between mb-2 px-1">
+          <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase">
+            {editingId ? 'Edit reminder' : 'Create reminder'}
+          </p>
+          {editingId && (
+            <button onClick={resetForm} className="flex items-center gap-1 text-xs font-semibold text-stone-400 hover:text-stone-600">
+              <X size={12} /> Cancel edit
+            </button>
+          )}
+        </div>
         <div className="bg-white border border-stone-100 rounded-2xl shadow-sm p-4 space-y-2">
           <input className="field-in" placeholder="Title (e.g. Take your medicine)" maxLength={100}
             value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -138,9 +171,10 @@ export function AdminRemindersTab({ showToast }) {
             <code>`code`</code>, <code>[link](https://url)</code>, <code>&gt; quote</code>, <code>---</code> divider,{' '}
             <code>- </code> bullet list, <code>1. </code> numbered list.
           </p>
-          <button onClick={create} disabled={creating}
+          <button onClick={submit} disabled={creating}
             className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
-            <AlarmClock size={14} /> {creating ? 'Creating…' : 'Create reminder'}
+            <AlarmClock size={14} />
+            {creating ? (editingId ? 'Saving…' : 'Creating…') : (editingId ? 'Save changes' : 'Create reminder')}
           </button>
         </div>
       </section>
@@ -171,6 +205,11 @@ export function AdminRemindersTab({ showToast }) {
                     <p className="text-xs text-stone-300 truncate">{fireSummary(r)}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <button onClick={() => startEdit(r)}
+                      className="p-2 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50"
+                      title="Edit" aria-label={`Edit ${r.title}`}>
+                      <Pencil size={14} />
+                    </button>
                     <button onClick={() => sendNow(r)} disabled={sendingId === r.id}
                       className="p-2 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50 disabled:opacity-40"
                       title="Send now (test)" aria-label={`Send ${r.title} now`}>
