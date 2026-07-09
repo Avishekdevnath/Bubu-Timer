@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore'
-import { ChevronDown, ChevronUp, FlaskConical, Megaphone, Send, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, FlaskConical, Megaphone, Search, Send, Trash2, X } from 'lucide-react'
 import { auth, firestore } from '../../lib/firebase.js'
 import { AppModal } from '../../components/AppModal.jsx'
-import { broadcast, deleteNotification, updateNotification } from './adminApi.js'
+import { broadcast, deleteNotification, listUsers, updateNotification } from './adminApi.js'
+import { filterUsers } from './userStats.js'
 
 function relTime(ts) {
   const ms = ts?.toMillis ? ts.toMillis() : ts || 0
@@ -21,7 +22,9 @@ export function AdminBroadcastTab({ showToast }) {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [url, setUrl] = useState('')
-  const [toUid, setToUid] = useState('')
+  const [users, setUsers] = useState(null)
+  const [targetSearch, setTargetSearch] = useState('')
+  const [targetUser, setTargetUser] = useState(null)
   const [sending, setSending] = useState(false)
   const [testSending, setTestSending] = useState(false)
   const [annText, setAnnText] = useState('')
@@ -52,13 +55,19 @@ export function AdminBroadcastTab({ showToast }) {
     return onSnapshot(q, (snap) => setNotifs(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), () => {})
   }, [])
 
+  useEffect(() => {
+    listUsers().then((res) => setUsers(res.users)).catch(() => {})
+  }, [])
+
+  const targetMatches = users && targetSearch.trim() ? filterUsers(users, targetSearch).slice(0, 6) : []
+
   async function doSend() {
     setSending(true)
     try {
-      const res = await broadcast(title.trim(), body.trim(), url.trim() || undefined, toUid.trim() || undefined)
+      const res = await broadcast(title.trim(), body.trim(), url.trim() || undefined, targetUser?.uid || undefined)
       showToast(`Sent to ${res.sent}/${res.tokens} devices${res.failed ? ` (${res.failed} failed)` : ''}`)
       lastSentRef.current = { title: title.trim(), at: Date.now() }
-      setTitle(''); setBody(''); setUrl(''); setToUid('')
+      setTitle(''); setBody(''); setUrl(''); setTargetUser(null); setTargetSearch('')
     } catch (err) {
       showToast(`Broadcast failed: ${err.message}`)
     } finally {
@@ -165,8 +174,35 @@ export function AdminBroadcastTab({ showToast }) {
             value={body} onChange={(e) => setBody(e.target.value)} />
           <input className="field-in" placeholder="Link route (default /home)"
             value={url} onChange={(e) => setUrl(e.target.value)} />
-          <input className="field-in" placeholder="Target uid (blank = everyone)"
-            value={toUid} onChange={(e) => setToUid(e.target.value)} />
+          {targetUser ? (
+            <div className="flex items-center justify-between gap-2 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-stone-800 truncate">{targetUser.displayName || '(no name)'}</p>
+                <p className="text-xs text-stone-400 truncate">{targetUser.email}</p>
+              </div>
+              <button onClick={() => { setTargetUser(null); setTargetSearch('') }}
+                className="p-1.5 rounded-full text-stone-400 hover:text-stone-600 hover:bg-stone-100 shrink-0" aria-label="Clear target user">
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <div className="relative">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-300" />
+              <input className="field-in pl-8" placeholder="Search user by name, email or uid (blank = everyone)"
+                value={targetSearch} onChange={(e) => setTargetSearch(e.target.value)} />
+              {targetMatches.length > 0 && (
+                <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-stone-200 rounded-xl shadow-lg overflow-hidden">
+                  {targetMatches.map((u) => (
+                    <button key={u.uid} onClick={() => { setTargetUser(u); setTargetSearch('') }}
+                      className="w-full text-left px-3 py-2 hover:bg-stone-50 border-b border-stone-100 last:border-0">
+                      <p className="text-sm font-medium text-stone-800 truncate">{u.displayName || '(no name)'}</p>
+                      <p className="text-xs text-stone-400 truncate">{u.email} · {u.uid}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex gap-2">
             <button onClick={sendTest} disabled={testSending}
               className="flex-1 py-3 bg-white border border-stone-200 text-stone-700 text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2 hover:bg-stone-50">
@@ -206,12 +242,13 @@ export function AdminBroadcastTab({ showToast }) {
           {notifs?.length === 0 && <p className="text-xs text-stone-400 px-1">No notifications sent yet</p>}
           {(notifs || []).map((n) => {
             const expanded = expandedId === n.id
+            const target = n.toUid ? users?.find((u) => u.uid === n.toUid) : null
             return (
               <div key={n.id} className="bg-white border border-stone-100 rounded-2xl shadow-sm p-4">
                 <div className="flex items-center justify-between gap-3">
                   <button onClick={() => toggleExpand(n)} className="min-w-0 text-left flex-1">
                     <p className="text-sm font-semibold text-stone-800 truncate">{n.title}</p>
-                    <p className="text-xs text-stone-400 truncate">{n.type} · {relTime(n.createdAt)}{n.toUid ? ` · to ${n.toUid}` : ''}</p>
+                    <p className="text-xs text-stone-400 truncate">{n.type} · {relTime(n.createdAt)}{n.toUid ? ` · to ${target?.displayName || target?.email || n.toUid}` : ''}</p>
                   </button>
                   <div className="flex items-center gap-2 shrink-0">
                     <button onClick={() => setDeleteConfirm(n.id)}

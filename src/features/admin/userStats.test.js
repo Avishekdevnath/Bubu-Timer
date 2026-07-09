@@ -18,6 +18,10 @@ describe('filterUsers', () => {
   it('no match returns empty array', () => {
     expect(filterUsers(users, 'zzz')).toHaveLength(0)
   })
+  it('filters by uid, case-insensitive substring', () => {
+    const withUids = [{ uid: 'AbC123', displayName: 'X', email: 'x@x.com' }, { uid: 'zZz999', displayName: 'Y', email: 'y@y.com' }]
+    expect(filterUsers(withUids, 'abc12').map((u) => u.uid)).toEqual(['AbC123'])
+  })
 })
 
 describe('sortUsers', () => {

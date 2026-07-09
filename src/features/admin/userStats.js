@@ -2,7 +2,9 @@ export function filterUsers(users, query) {
   const q = query.trim().toLowerCase()
   if (!q) return users
   return users.filter((u) =>
-    (u.displayName || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q))
+    (u.displayName || '').toLowerCase().includes(q) ||
+    (u.email || '').toLowerCase().includes(q) ||
+    (u.uid || '').toLowerCase().includes(q))
 }
 
 const SORTERS = {
