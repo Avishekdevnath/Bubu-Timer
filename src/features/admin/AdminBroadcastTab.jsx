@@ -180,7 +180,7 @@ export function AdminBroadcastTab({ showToast }) {
                   </button>
                   <div className="flex items-center gap-2 shrink-0">
                     <button onClick={() => setDeleteConfirm(n.id)}
-                      className="p-2 rounded-full border border-red-200 text-red-500 hover:bg-red-50" title="Delete">
+                      className="p-2 rounded-full border border-red-200 text-red-500 hover:bg-red-50" title="Delete" aria-label={`Delete notification: ${n.title}`}>
                       <Trash2 size={14} />
                     </button>
                     {expanded ? <ChevronUp size={14} className="text-stone-300" /> : <ChevronDown size={14} className="text-stone-300" />}

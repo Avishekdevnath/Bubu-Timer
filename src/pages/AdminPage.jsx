@@ -231,12 +231,12 @@ function UsersTab({ showToast, currentUser }) {
                 </button>
                 <div className="flex items-center gap-2 shrink-0">
                   <button onClick={() => { setConfirm({ kind: 'reset', user: u }); setConfirmText('') }}
-                    className="p-2 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50" title="Reset state">
+                    className="p-2 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50" title="Reset state" aria-label={`Reset state for ${u.email}`}>
                     <RotateCcw size={14} />
                   </button>
                   {u.uid !== currentUser?.uid && (
                     <button onClick={() => { setConfirm({ kind: 'delete', user: u }); setConfirmText('') }}
-                      className="p-2 rounded-full border border-red-200 text-red-500 hover:bg-red-50" title="Delete account">
+                      className="p-2 rounded-full border border-red-200 text-red-500 hover:bg-red-50" title="Delete account" aria-label={`Delete account ${u.email}`}>
                       <Trash2 size={14} />
                     </button>
                   )}

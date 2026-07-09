@@ -118,11 +118,11 @@ export function AdminRoomsTab({ showToast }) {
               </button>
               <div className="flex gap-2 shrink-0 items-center">
                 <button onClick={() => setConfirm({ kind: 'clear', code })}
-                  className="p-2 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50" title="Clear chat">
+                  className="p-2 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50" title="Clear chat" aria-label={`Clear chat in room ${code}`}>
                   <Eraser size={14} />
                 </button>
                 <button onClick={() => setConfirm({ kind: 'close', code })}
-                  className="p-2 rounded-full border border-red-200 text-red-500 hover:bg-red-50" title="Close room">
+                  className="p-2 rounded-full border border-red-200 text-red-500 hover:bg-red-50" title="Close room" aria-label={`Close room ${code}`}>
                   <DoorClosed size={14} />
                 </button>
                 {expanded ? <ChevronUp size={14} className="text-stone-300" /> : <ChevronDown size={14} className="text-stone-300" />}
