@@ -107,3 +107,5 @@ exports.adminDeleteUser = adminFns.adminDeleteUser
 exports.adminCloseRoom = adminFns.adminCloseRoom
 exports.adminClearChat = adminFns.adminClearChat
 exports.adminBroadcast = adminFns.adminBroadcast
+exports.adminSetUserDisabled = adminFns.adminSetUserDisabled
+exports.adminKickMember = adminFns.adminKickMember
