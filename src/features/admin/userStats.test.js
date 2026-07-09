@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterUsers, sortUsers } from './userStats.js'
+import { filterUsers, sortUsers, usersToCsv } from './userStats.js'
 
 describe('filterUsers', () => {
   const users = [
@@ -42,5 +42,27 @@ describe('sortUsers', () => {
   })
   it('unknown key returns original order', () => {
     expect(sortUsers(users, 'bogus', 'asc').map((u) => u.uid)).toEqual(['1', '2'])
+  })
+})
+
+describe('usersToCsv', () => {
+  it('builds a header row plus one row per user', () => {
+    const users = [
+      { uid: '1', displayName: 'Alice', email: 'alice@x.com', subjectsCount: 2, planDays: 3, tokenCount: 1, disabled: false, lastSignInTime: '2026-01-01' },
+    ]
+    const csv = usersToCsv(users)
+    const lines = csv.split('\n')
+    expect(lines[0]).toBe('Name,Email,Subjects,Plan Days,Devices,Disabled,Last Sign-in')
+    expect(lines[1]).toBe('Alice,alice@x.com,2,3,1,No,2026-01-01')
+  })
+  it('escapes commas and quotes in a field', () => {
+    const users = [
+      { uid: '1', displayName: 'Smith, "Al"', email: 'a@x.com', subjectsCount: 0, planDays: 0, tokenCount: 0, disabled: true, lastSignInTime: '' },
+    ]
+    const lines = usersToCsv(users).split('\n')
+    expect(lines[1]).toBe('"Smith, ""Al""",a@x.com,0,0,0,Yes,')
+  })
+  it('handles empty user list (header only)', () => {
+    expect(usersToCsv([]).split('\n')).toHaveLength(1)
   })
 })

@@ -24,3 +24,22 @@ export function sortUsers(users, key, dir) {
   })
   return dir === 'desc' ? sorted.reverse() : sorted
 }
+
+function csvField(value) {
+  const s = String(value ?? '')
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+export function usersToCsv(users) {
+  const header = ['Name', 'Email', 'Subjects', 'Plan Days', 'Devices', 'Disabled', 'Last Sign-in']
+  const rows = users.map((u) => [
+    csvField(u.displayName || ''),
+    csvField(u.email || ''),
+    csvField(u.subjectsCount || 0),
+    csvField(u.planDays || 0),
+    csvField(u.tokenCount || 0),
+    u.disabled ? 'Yes' : 'No',
+    csvField(u.lastSignInTime || ''),
+  ].join(','))
+  return [header.join(','), ...rows].join('\n')
+}

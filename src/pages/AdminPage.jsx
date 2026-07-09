@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Route, Routes, useNavigate } from 'react-router-dom'
 import { onValue, ref } from 'firebase/database'
-import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, ShieldOff, Trash2, RotateCcw } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronUp, Download, Pencil, Plus, RefreshCw, Search, Send, ShieldCheck, ShieldOff, Trash2, RotateCcw } from 'lucide-react'
 import { AppModal } from '../components/AppModal.jsx'
 import { SkeletonRows } from '../components/Skeleton.jsx'
 import { CopyButton } from '../components/CopyButton.jsx'
 import { listUsers, resetUser, deleteUser, setUserDisabled, broadcast, updateUserProfile, createUser } from '../features/admin/adminApi.js'
-import { filterUsers, sortUsers } from '../features/admin/userStats.js'
+import { filterUsers, sortUsers, usersToCsv } from '../features/admin/userStats.js'
 import { AdminDashboardTab } from '../features/admin/AdminDashboardTab.jsx'
 import { AdminRoomsTab } from '../features/admin/AdminRoomsTab.jsx'
 import { AdminBroadcastTab } from '../features/admin/AdminBroadcastTab.jsx'
@@ -159,6 +159,17 @@ function UsersTab({ showToast, currentUser }) {
     }
   }
 
+  function exportCsv() {
+    const csv = usersToCsv(visibleUsers)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `bubu-users-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   async function sendPush(uid) {
     if (!pushTitle.trim() || !pushBody.trim()) { showToast('Title and body required'); return }
     setPushing(true)
@@ -187,6 +198,10 @@ function UsersTab({ showToast, currentUser }) {
           <button onClick={() => setCreateOpen(true)}
             className="flex items-center gap-1.5 text-xs font-medium text-white bg-stone-900 px-3 py-1.5 rounded-full hover:bg-stone-800">
             <Plus size={12} /> Create user
+          </button>
+          <button onClick={exportCsv} disabled={!users?.length}
+            className="flex items-center gap-1.5 text-xs font-medium text-stone-500 bg-white border border-stone-200 px-3 py-1.5 rounded-full hover:bg-stone-50 disabled:opacity-50">
+            <Download size={12} /> Export CSV
           </button>
           <button onClick={refresh} disabled={busy} aria-label="Refresh user list"
             className="flex items-center gap-1.5 text-xs font-medium text-stone-500 bg-white border border-stone-200 px-3 py-1.5 rounded-full hover:bg-stone-50 disabled:opacity-50">
