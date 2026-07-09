@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert')
-const { requireString, validateBroadcast } = require('./adminValidation.js')
+const { requireString, requireSlot, validateBroadcast } = require('./adminValidation.js')
 
 test('requireString accepts and trims a normal string', () => {
   assert.strictEqual(requireString('  abc  ', 'uid', 200), 'abc')
@@ -19,7 +19,7 @@ test('requireString rejects over-length', () => {
 test('validateBroadcast trims and returns title/body', () => {
   assert.deepStrictEqual(
     validateBroadcast({ title: ' Hi ', body: ' There ' }),
-    { title: 'Hi', body: 'There', url: '/home' },
+    { title: 'Hi', body: 'There', url: '/home', toUid: null },
   )
 })
 
@@ -41,4 +41,24 @@ test('validateBroadcast accepts and trims a route url', () => {
 test('validateBroadcast rejects bad urls', () => {
   assert.throws(() => validateBroadcast({ title: 'a', body: 'b', url: 'https://evil.com' }), /url must start with \//)
   assert.throws(() => validateBroadcast({ title: 'a', body: 'b', url: '/' + 'x'.repeat(200) }), /url too long/)
+})
+
+test('requireSlot accepts A or B', () => {
+  assert.strictEqual(requireSlot('A'), 'A')
+  assert.strictEqual(requireSlot('B'), 'B')
+})
+
+test('requireSlot rejects anything else', () => {
+  for (const bad of ['', 'C', null, undefined, 'a', 'AB']) {
+    assert.throws(() => requireSlot(bad), /slot must be A or B/)
+  }
+})
+
+test('validateBroadcast defaults toUid to null', () => {
+  assert.strictEqual(validateBroadcast({ title: 'a', body: 'b' }).toUid, null)
+  assert.strictEqual(validateBroadcast({ title: 'a', body: 'b', toUid: '' }).toUid, null)
+})
+
+test('validateBroadcast trims and returns a valid toUid', () => {
+  assert.strictEqual(validateBroadcast({ title: 'a', body: 'b', toUid: ' uid123 ' }).toUid, 'uid123')
 })

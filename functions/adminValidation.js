@@ -9,6 +9,11 @@ function requireString(value, name, maxLen) {
   return trimmed
 }
 
+function requireSlot(value) {
+  if (value !== 'A' && value !== 'B') throw new Error('slot must be A or B')
+  return value
+}
+
 function validateBroadcast(data) {
   const title = requireString(data?.title, 'title', 100)
   const body = requireString(data?.body, 'body', 500)
@@ -17,7 +22,11 @@ function validateBroadcast(data) {
     url = requireString(data.url, 'url', 200)
     if (!url.startsWith('/')) throw new Error('url must start with /')
   }
-  return { title, body, url }
+  let toUid = null
+  if (data?.toUid != null && String(data.toUid).trim() !== '') {
+    toUid = requireString(data.toUid, 'toUid', 200)
+  }
+  return { title, body, url, toUid }
 }
 
-module.exports = { requireString, validateBroadcast }
+module.exports = { requireString, requireSlot, validateBroadcast }
