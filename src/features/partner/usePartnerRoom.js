@@ -476,6 +476,16 @@ export function usePartnerRoom({ currentUser, appState, showToast, playChatPing 
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [pair.connected])
 
+  // Backfill uid on myRef once auth resolves — the local-pairing restore below
+  // runs once at mount (before onAuthStateChanged resolves currentUser), so
+  // bindRoom's uid write can land as null. Patch it once currentUser.uid is known.
+  useEffect(() => {
+    if (!currentUser?.uid || currentUser.isGuest || !pair.connected) return
+    const myRef = partnerRefs.current.myRef
+    if (!myRef) return
+    update(myRef, { uid: currentUser.uid }).catch(() => {})
+  }, [currentUser?.uid, currentUser?.isGuest, pair.connected])
+
   useEffect(() => {
     const stored = loadStoredPairing()
     if (stored?.roomCode && stored?.mySlot) {
