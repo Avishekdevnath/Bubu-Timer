@@ -4,6 +4,7 @@ import {
   Home,
   MessageCircle,
   Settings,
+  ShieldCheck,
   Timer,
 } from 'lucide-react'
 import {
@@ -635,6 +636,21 @@ function App() {
               )}
             </NavLink>
           ))}
+          {isAdmin && (
+            <NavLink to="/admin"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all w-full ${
+                  isActive ? 'bg-amber-100 text-amber-900' : 'text-amber-600 hover:bg-amber-50 hover:text-amber-800'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <div className="flex items-center gap-3">
+                  <ShieldCheck size={18} strokeWidth={isActive ? 2.5 : 1.5} />Admin
+                </div>
+              )}
+            </NavLink>
+          )}
         </nav>
         <div className="p-4 border-t border-stone-100">
           <NavLink to="/settings" className="flex items-center gap-3 bg-white px-3 py-2 rounded-xl border border-stone-100 shadow-sm hover:bg-stone-50 hover:border-stone-200 transition-colors cursor-pointer">
@@ -696,7 +712,7 @@ function App() {
               playDing={playDing} playChatPing={playChatPing} setResetOpen={setResetOpen}
               authTab={authTab} setAuthTab={setAuthTab} authForms={authForms} setAuthForms={setAuthForms}
               login={login} signup={signup} loginWithGoogle={loginWithGoogle} setCurrentUser={setCurrentUser}
-              isAdmin={isAdmin}
+              isAdmin={isAdmin} showToast={showToast}
             />} />
             <Route path="/partner-settings" element={<PartnerSettingsPage room={room} showToast={showToast} />} />
             <Route path="/log" element={<LogPage appState={appState} patchState={patchState} />} />

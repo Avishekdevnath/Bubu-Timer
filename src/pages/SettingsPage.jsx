@@ -1,18 +1,27 @@
-import { CalendarDays, ChartNoAxesColumnIncreasing, ChevronRight, FileText, User, ShieldCheck } from 'lucide-react'
+import { useState } from 'react'
+import { Bell, CalendarDays, ChartNoAxesColumnIncreasing, ChevronRight, FileText, User, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../lib/firebase.js'
 import { liveElapsedSec } from '../features/plan/planModel.js'
 import { minutesToClock12h } from '../lib/dates.js'
+import { registerPushToken } from '../lib/messaging.js'
 
 export function SettingsPage({
   appState, patchState, currentUser, room, profileForm, setProfileForm, saveProfile,
   soundOn, setSoundOn, chatSoundOn, setChatSoundOn, playDing, playChatPing,
   setResetOpen,
   authTab, setAuthTab, authForms, setAuthForms, login, signup, loginWithGoogle, setCurrentUser,
-  isAdmin,
+  isAdmin, showToast,
 }) {
   const navigate = useNavigate()
+  const [notifPerm, setNotifPerm] = useState(() => (typeof Notification === 'undefined' ? 'unsupported' : Notification.permission))
+
+  async function enableNotifications() {
+    const token = await registerPushToken(currentUser.uid)
+    setNotifPerm(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission)
+    showToast?.(token ? 'Notifications enabled' : 'Notifications blocked — check browser site settings', token ? 'study-t' : '')
+  }
   const accountLabel = currentUser?.email || (currentUser?.isGuest ? 'Guest mode' : 'Not signed in')
   const pair = room?.pair
   const partnerConnected = !!pair?.connected
@@ -249,6 +258,27 @@ export function SettingsPage({
             </div>
           )}
         </section>
+
+        {currentUser && !currentUser.isGuest && notifPerm !== 'unsupported' && (
+          <section>
+            <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Notifications</p>
+            <div className="bg-white border border-stone-100 rounded-2xl shadow-sm p-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 shrink-0"><Bell size={16} /></div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-stone-800">Push notifications</p>
+                <p className="text-xs text-stone-400">
+                  {notifPerm === 'granted' ? 'Enabled on this device' : notifPerm === 'denied' ? 'Blocked — enable in browser site settings' : 'Get notified for chat replies and timers'}
+                </p>
+              </div>
+              {notifPerm !== 'granted' && notifPerm !== 'denied' && (
+                <button onClick={enableNotifications}
+                  className="text-xs font-semibold text-stone-900 bg-stone-100 hover:bg-stone-200 px-3 py-1.5 rounded-lg transition-colors shrink-0">
+                  Enable
+                </button>
+              )}
+            </div>
+          </section>
+        )}
 
         {isAdmin && (
           <section>
