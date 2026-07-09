@@ -8,6 +8,7 @@ export function AdminBroadcastTab({ showToast }) {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [url, setUrl] = useState('')
+  const [toUid, setToUid] = useState('')
   const [sending, setSending] = useState(false)
   const [annText, setAnnText] = useState('')
   const [annActive, setAnnActive] = useState(false)
@@ -29,9 +30,9 @@ export function AdminBroadcastTab({ showToast }) {
     if (url.trim() && !url.trim().startsWith('/')) { showToast('Link must start with /'); return }
     setSending(true)
     try {
-      const res = await broadcast(title.trim(), body.trim(), url.trim() || undefined)
+      const res = await broadcast(title.trim(), body.trim(), url.trim() || undefined, toUid.trim() || undefined)
       showToast(`Sent to ${res.sent}/${res.tokens} devices${res.failed ? ` (${res.failed} failed)` : ''}`)
-      setTitle(''); setBody(''); setUrl('')
+      setTitle(''); setBody(''); setUrl(''); setToUid('')
     } catch (err) {
       showToast(`Broadcast failed: ${err.message}`)
     } finally {
@@ -79,6 +80,8 @@ export function AdminBroadcastTab({ showToast }) {
             value={body} onChange={(e) => setBody(e.target.value)} />
           <input className="field-in" placeholder="Link route (default /home)"
             value={url} onChange={(e) => setUrl(e.target.value)} />
+          <input className="field-in" placeholder="Target uid (blank = everyone)"
+            value={toUid} onChange={(e) => setToUid(e.target.value)} />
           <button onClick={send} disabled={sending}
             className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
             <Send size={14} /> {sending ? 'Sending…' : 'Send broadcast'}
