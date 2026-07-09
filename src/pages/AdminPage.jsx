@@ -51,7 +51,7 @@ export function AdminPage({ showToast, currentUser }) {
         <Route path="users" element={<UsersTab showToast={showToast} currentUser={currentUser} />} />
         <Route path="rooms" element={<AdminRoomsTab showToast={showToast} />} />
         <Route path="broadcast" element={<AdminBroadcastTab showToast={showToast} />} />
-        <Route path="logs" element={<AdminLogsTab />} />
+        <Route path="logs" element={<AdminLogsTab currentUser={currentUser} />} />
       </Routes>
     </div>
   )
