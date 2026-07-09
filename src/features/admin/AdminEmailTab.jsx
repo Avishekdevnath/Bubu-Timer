@@ -56,10 +56,13 @@ export function AdminEmailTab({ showToast }) {
         <div className="bg-white border border-stone-100 rounded-2xl shadow-sm p-4 space-y-2">
           <input className="field-in" placeholder="Subject (max 200)" maxLength={200}
             value={subject} onChange={(e) => setSubject(e.target.value)} />
-          <textarea className="field-in resize-none" rows={6} placeholder="Message (max 5000)" maxLength={5000}
+          <textarea className="field-in resize-y" rows={16} placeholder="Message (max 20,000 characters)" maxLength={20000}
             value={body} onChange={(e) => setBody(e.target.value)} />
-          <p className="text-xs text-stone-400 px-1">
-            Emoji work anywhere. Formatting: **bold**, *italic*, `code`, [link](https://url), and "- " for a bullet list.
+          <p className="text-xs text-right text-stone-300 px-1 -mt-1">{body.length.toLocaleString()} / 20,000</p>
+          <p className="text-xs text-stone-400 px-1 leading-relaxed">
+            Emoji work anywhere. Formatting: <code># heading</code>, <code>**bold**</code>, <code>*italic*</code>,{' '}
+            <code>~~strikethrough~~</code>, <code>`code`</code>, <code>[link](https://url)</code>, <code>&gt; quote</code>,{' '}
+            <code>---</code> divider, <code>- </code> bullet list, <code>1. </code> numbered list.
           </p>
           <UserPicker users={users} value={targetUser} onChange={setTargetUser} />
           <button onClick={send} disabled={sending}

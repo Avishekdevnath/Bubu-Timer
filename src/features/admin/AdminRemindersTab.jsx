@@ -89,8 +89,9 @@ export function AdminRemindersTab({ showToast }) {
         <div className="bg-white border border-stone-100 rounded-2xl shadow-sm p-4 space-y-2">
           <input className="field-in" placeholder="Title (e.g. Take your medicine)" maxLength={100}
             value={title} onChange={(e) => setTitle(e.target.value)} />
-          <textarea className="field-in resize-none" rows={2} placeholder="Message" maxLength={500}
+          <textarea className="field-in resize-y" rows={8} placeholder="Message (max 20,000 characters)" maxLength={20000}
             value={body} onChange={(e) => setBody(e.target.value)} />
+          <p className="text-xs text-right text-stone-300 px-1 -mt-1">{body.length.toLocaleString()} / 20,000</p>
           <MultiUserPicker users={users} value={targetUsers} onChange={setTargetUsers} />
           <input type="time" className="field-in w-auto" value={timeValue} onChange={(e) => setTimeValue(e.target.value)}
             aria-label="Time (any hour and minute, repeats daily)" />
@@ -111,8 +112,11 @@ export function AdminRemindersTab({ showToast }) {
             Repeat forever (until stopped manually)
           </label>
           <p className="text-xs text-stone-400 px-1">Repeats every day at this time. Fires within 15 minutes of it — exact minute isn't guaranteed. Blank start = begins today.</p>
-          <p className="text-xs text-stone-400 px-1">
-            Email formatting: emoji work anywhere, plus **bold**, *italic*, `code`, [link](https://url), "- " bullet lists.
+          <p className="text-xs text-stone-400 px-1 leading-relaxed">
+            Push shows a short preview; the email gets the full message. Emoji work anywhere. Formatting:{' '}
+            <code># heading</code>, <code>**bold**</code>, <code>*italic*</code>, <code>~~strikethrough~~</code>,{' '}
+            <code>`code`</code>, <code>[link](https://url)</code>, <code>&gt; quote</code>, <code>---</code> divider,{' '}
+            <code>- </code> bullet list, <code>1. </code> numbered list.
           </p>
           <button onClick={create} disabled={creating}
             className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">

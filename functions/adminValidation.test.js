@@ -91,8 +91,12 @@ test('validateEmailMessage trims and returns subject/body', () => {
 
 test('validateEmailMessage enforces limits', () => {
   assert.throws(() => validateEmailMessage({ subject: 'x'.repeat(201), body: 'ok' }), /subject too long/)
-  assert.throws(() => validateEmailMessage({ subject: 'ok', body: 'x'.repeat(5001) }), /body too long/)
+  assert.throws(() => validateEmailMessage({ subject: 'ok', body: 'x'.repeat(20001) }), /body too long/)
   assert.throws(() => validateEmailMessage({ subject: '', body: 'ok' }), /subject must be a non-empty string/)
+})
+
+test('validateEmailMessage allows a long, richly formatted body', () => {
+  assert.strictEqual(validateEmailMessage({ subject: 'ok', body: 'x'.repeat(20000) }).body.length, 20000)
 })
 
 test('validateEmailMessage defaults toUid to null, accepts a valid one', () => {
@@ -163,4 +167,32 @@ test('markdownToHtml escapes raw HTML before formatting', () => {
     markdownToHtml('<script>alert(1)</script> **bold**'),
     '<p style="margin:0 0 12px">&lt;script&gt;alert(1)&lt;/script&gt; <strong>bold</strong></p>',
   )
+})
+
+test('markdownToHtml converts ~~strikethrough~~', () => {
+  assert.strictEqual(markdownToHtml('~~gone~~'), '<p style="margin:0 0 12px"><s>gone</s></p>')
+})
+
+test('markdownToHtml converts # / ## / ### headings', () => {
+  assert.strictEqual(markdownToHtml('# Big'), '<h1 style="margin:0 0 12px;font-size:20px;font-weight:700">Big</h1>')
+  assert.strictEqual(markdownToHtml('## Medium'), '<h2 style="margin:0 0 12px;font-size:17px;font-weight:700">Medium</h2>')
+  assert.strictEqual(markdownToHtml('### Small'), '<h3 style="margin:0 0 12px;font-size:15px;font-weight:700">Small</h3>')
+})
+
+test('markdownToHtml converts a numbered list block', () => {
+  assert.strictEqual(
+    markdownToHtml('1. one\n2. two'),
+    '<ol style="margin:0 0 12px;padding-left:20px"><li>one</li><li>two</li></ol>',
+  )
+})
+
+test('markdownToHtml converts a blockquote block', () => {
+  assert.strictEqual(
+    markdownToHtml('> quoted line one\n> quoted line two'),
+    '<blockquote style="margin:0 0 12px;padding-left:12px;border-left:3px solid #d6d3d1;color:#57534e">quoted line one<br>quoted line two</blockquote>',
+  )
+})
+
+test('markdownToHtml converts a horizontal rule', () => {
+  assert.strictEqual(markdownToHtml('---'), '<hr style="border:none;border-top:1px solid #e7e5e4;margin:16px 0">')
 })

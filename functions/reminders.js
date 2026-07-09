@@ -28,6 +28,16 @@ function isNotStarted(reminder, dateStr) {
   return dateStr < reminder.startDate
 }
 
+// Reminder bodies can now be long, formatted email copy, but FCM data
+// messages cap out around 4KB total — the notification tray only ever
+// shows a few lines anyway, so push gets a short plain-text preview
+// while the email gets the full body.
+function truncateForPush(text, maxLen = 300) {
+  const trimmed = text.trim()
+  if (trimmed.length <= maxLen) return trimmed
+  return `${trimmed.slice(0, maxLen - 1).trimEnd()}…`
+}
+
 // reminder.toUid is null (everyone), a single uid string, or an array of uids
 // (multi-user targeting). Normalizes to an array of uids, or null for everyone.
 function targetUidList(toUid) {
@@ -74,6 +84,7 @@ async function sendReminderPush(fs, reminder, reminderId, dateStr) {
     for (const t of Object.keys(doc.data()?.fcmTokens || {})) tokenOwners.set(t, doc.id)
   }
   const tokens = [...tokenOwners.keys()]
+  const pushBody = truncateForPush(reminder.body)
 
   let sent = 0
   let failed = 0
@@ -82,9 +93,9 @@ async function sendReminderPush(fs, reminder, reminderId, dateStr) {
     const batch = tokens.slice(i, i + 500)
     const res = await getMessaging().sendEachForMulticast({
       tokens: batch,
-      data: { title: reminder.title, body: reminder.body, url: '/home', notifId: notifRef.id, tag },
+      data: { title: reminder.title, body: pushBody, url: '/home', notifId: notifRef.id, tag },
       webpush: {
-        notification: { title: reminder.title, body: reminder.body, icon: '/icon-192.png', badge: '/icon-192.png', tag },
+        notification: { title: reminder.title, body: pushBody, icon: '/icon-192.png', badge: '/icon-192.png', tag },
         fcm_options: { link: '/home' },
       },
     })
@@ -168,4 +179,4 @@ const checkReminders = onSchedule(
   },
 )
 
-module.exports = { isDueNow, isExpired, isNotStarted, checkReminders }
+module.exports = { isDueNow, isExpired, isNotStarted, truncateForPush, checkReminders }

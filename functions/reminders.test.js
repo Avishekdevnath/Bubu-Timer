@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert')
-const { isDueNow, isExpired, isNotStarted } = require('./reminders.js')
+const { isDueNow, isExpired, isNotStarted, truncateForPush } = require('./reminders.js')
 
 test('isDueNow matches exact time', () => {
   assert.strictEqual(isDueNow({ timeHour: 8, timeMinute: 0 }, 8, 0), true)
@@ -39,4 +39,15 @@ test('isNotStarted: true before startDate, false on and after', () => {
   assert.strictEqual(isNotStarted({ startDate: '2026-07-10' }, '2026-07-09'), true)
   assert.strictEqual(isNotStarted({ startDate: '2026-07-10' }, '2026-07-10'), false)
   assert.strictEqual(isNotStarted({ startDate: '2026-07-10' }, '2026-07-11'), false)
+})
+
+test('truncateForPush leaves short text untouched', () => {
+  assert.strictEqual(truncateForPush('short reminder'), 'short reminder')
+})
+
+test('truncateForPush cuts long text to the limit with an ellipsis', () => {
+  const long = 'x'.repeat(500)
+  const result = truncateForPush(long, 300)
+  assert.strictEqual(result.length, 300)
+  assert.strictEqual(result.endsWith('…'), true)
 })
