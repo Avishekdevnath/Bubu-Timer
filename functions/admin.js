@@ -69,6 +69,7 @@ exports.adminListUsers = adminCall('listUsers', async () => {
       hasDoc: !!doc,
       stateUpdatedAtMs: doc?.stateUpdatedAtMs || 0,
       tokenCount: Object.keys(doc?.fcmTokens || {}).length,
+      fcmTokens: doc?.fcmTokens || {},
       subjectsCount: doc?.state?.subjects?.length || 0,
       planDays: doc?.state?.planHistory?.length || 0,
     }
@@ -108,6 +109,14 @@ exports.adminDeleteUser = adminCall('deleteUser', async (request) => {
     if (err.code !== 'auth/user-not-found') throw err
   })
   return { target: uid, params: { roomSlotsCleared: removals.length } }
+})
+
+exports.adminSetUserDisabled = adminCall('setUserDisabled', async (request) => {
+  const uid = requireString(request.data?.uid, 'uid', 200)
+  const disabled = !!request.data?.disabled
+  if (uid === request.auth.uid) throw new HttpsError('invalid-argument', 'Cannot disable yourself')
+  await getAuth().updateUser(uid, { disabled })
+  return { target: uid, params: { disabled } }
 })
 
 exports.adminCloseRoom = adminCall('closeRoom', async (request) => {
