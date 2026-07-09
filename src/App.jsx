@@ -688,7 +688,7 @@ function App() {
           </div>
         </header>
 
-        <AnnouncementBanner />
+        <AnnouncementBanner currentUser={currentUser} notifState={notifData.notifState} markRead={notifData.markRead} />
 
         {/* Screen content */}
         <main className={`flex-1 overflow-x-hidden ${location.pathname === '/buddy' ? 'overflow-hidden' : 'overflow-y-auto pb-20 md:pb-6'}`}>

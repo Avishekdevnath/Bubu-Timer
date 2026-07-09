@@ -4,9 +4,9 @@ import { Megaphone, X } from 'lucide-react'
 import { firestore } from '../lib/firebase.js'
 import { ANN_DISMISS_KEY, shouldShowAnnouncement } from '../features/admin/announcement.js'
 
-export function AnnouncementBanner() {
+export function AnnouncementBanner({ currentUser, notifState, markRead }) {
   const [ann, setAnn] = useState(null)
-  const [dismissedAt, setDismissedAt] = useState(() => Number(localStorage.getItem(ANN_DISMISS_KEY)) || 0)
+  const [localDismissed, setLocalDismissed] = useState(() => localStorage.getItem(ANN_DISMISS_KEY) || '')
 
   useEffect(() => {
     return onSnapshot(doc(firestore, 'config', 'announcement'),
@@ -14,11 +14,18 @@ export function AnnouncementBanner() {
       () => {}) // silent — banner is best-effort
   }, [])
 
-  if (!shouldShowAnnouncement(ann, dismissedAt)) return null
+  const isGuest = !currentUser || currentUser.isGuest
+  const readMap = isGuest ? { [localDismissed]: true } : notifState?.read
+
+  if (!shouldShowAnnouncement(ann, readMap)) return null
 
   function dismiss() {
-    localStorage.setItem(ANN_DISMISS_KEY, String(ann.updatedAt))
-    setDismissedAt(ann.updatedAt)
+    if (isGuest) {
+      localStorage.setItem(ANN_DISMISS_KEY, ann.notifId)
+      setLocalDismissed(ann.notifId)
+    } else {
+      markRead(ann.notifId)
+    }
   }
 
   return (
