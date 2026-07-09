@@ -4,7 +4,7 @@ const { getDatabase } = require('firebase-admin/database')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
 const logger = require('firebase-functions/logger')
-const { requireString, requireSlot, validateBroadcast } = require('./adminValidation.js')
+const { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast } = require('./adminValidation.js')
 
 const REGION = 'asia-southeast1'
 
@@ -109,6 +109,40 @@ exports.adminDeleteUser = adminCall('deleteUser', async (request) => {
     if (err.code !== 'auth/user-not-found') throw err
   })
   return { target: uid, params: { roomSlotsCleared: removals.length } }
+})
+
+exports.adminUpdateUserProfile = adminCall('updateUserProfile', async (request) => {
+  const uid = requireString(request.data?.uid, 'uid', 200)
+  const authUpdates = {}
+  const docUpdates = {}
+  if (request.data?.displayName != null && String(request.data.displayName).trim() !== '') {
+    const displayName = requireString(request.data.displayName, 'displayName', 100)
+    authUpdates.displayName = displayName
+    docUpdates.username = displayName
+  }
+  if (request.data?.email != null && String(request.data.email).trim() !== '') {
+    const email = requireEmail(request.data.email, 'email')
+    authUpdates.email = email
+    docUpdates.email = email
+  }
+  if (Object.keys(authUpdates).length === 0) throw new HttpsError('invalid-argument', 'Nothing to update')
+  await getAuth().updateUser(uid, authUpdates)
+  await getFirestore().doc(`users/${uid}`).set(docUpdates, { merge: true })
+  return { target: uid, params: authUpdates }
+})
+
+exports.adminCreateUser = adminCall('createUser', async (request) => {
+  const email = requireEmail(request.data?.email, 'email')
+  const password = requirePassword(request.data?.password)
+  const displayName = request.data?.displayName ? requireString(request.data.displayName, 'displayName', 100) : ''
+  const userRecord = await getAuth().createUser({ email, password, displayName: displayName || undefined })
+  await getFirestore().doc(`users/${userRecord.uid}`).set({
+    email,
+    username: displayName,
+    partnerName: '',
+    createdAt: FieldValue.serverTimestamp(),
+  })
+  return { data: { uid: userRecord.uid }, target: userRecord.uid, params: { email } }
 })
 
 exports.adminSetUserDisabled = adminCall('setUserDisabled', async (request) => {

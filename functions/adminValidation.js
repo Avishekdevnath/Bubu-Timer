@@ -14,6 +14,18 @@ function requireSlot(value) {
   return value
 }
 
+function requireEmail(value, name) {
+  const trimmed = requireString(value, name, 200)
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) throw new Error(`${name} must be a valid email`)
+  return trimmed
+}
+
+function requirePassword(value) {
+  const trimmed = requireString(value, 'password', 200)
+  if (trimmed.length < 6) throw new Error('password must be at least 6 characters')
+  return trimmed
+}
+
 function validateBroadcast(data) {
   const title = requireString(data?.title, 'title', 100)
   const body = requireString(data?.body, 'body', 500)
@@ -29,4 +41,4 @@ function validateBroadcast(data) {
   return { title, body, url, toUid }
 }
 
-module.exports = { requireString, requireSlot, validateBroadcast }
+module.exports = { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast }

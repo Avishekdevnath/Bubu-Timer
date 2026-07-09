@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert')
-const { requireString, requireSlot, validateBroadcast } = require('./adminValidation.js')
+const { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast } = require('./adminValidation.js')
 
 test('requireString accepts and trims a normal string', () => {
   assert.strictEqual(requireString('  abc  ', 'uid', 200), 'abc')
@@ -61,4 +61,23 @@ test('validateBroadcast defaults toUid to null', () => {
 
 test('validateBroadcast trims and returns a valid toUid', () => {
   assert.strictEqual(validateBroadcast({ title: 'a', body: 'b', toUid: ' uid123 ' }).toUid, 'uid123')
+})
+
+test('requireEmail accepts and trims a valid email', () => {
+  assert.strictEqual(requireEmail(' a@b.com ', 'email'), 'a@b.com')
+})
+
+test('requireEmail rejects malformed or empty', () => {
+  for (const bad of ['', 'notanemail', 'a@b', '@b.com', null]) {
+    assert.throws(() => requireEmail(bad, 'email'), /email must be/)
+  }
+})
+
+test('requirePassword accepts 6+ chars', () => {
+  assert.strictEqual(requirePassword('abcdef'), 'abcdef')
+})
+
+test('requirePassword rejects short or empty', () => {
+  assert.throws(() => requirePassword('abc'), /at least 6 characters/)
+  assert.throws(() => requirePassword(''), /password must be/)
 })
