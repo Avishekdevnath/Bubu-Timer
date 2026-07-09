@@ -23,7 +23,7 @@ export function NotificationsPage({ notifData }) {
 
   function open(n) {
     markRead(n.id)
-    navigate(n.url || '/home')
+    navigate(`/notifications/${n.id}`)
   }
 
   return (
