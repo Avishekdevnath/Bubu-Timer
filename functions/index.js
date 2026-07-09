@@ -1,14 +1,18 @@
-const { onValueCreated } = require('firebase-functions/v2/database')
 const { initializeApp } = require('firebase-admin/app')
+
+initializeApp()
+
+const functions = require('firebase-functions')
+const { onValueCreated } = require('firebase-functions/v2/database')
+const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { getDatabase } = require('firebase-admin/database')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
 const logger = require('firebase-functions/logger')
 
 // Import voice message cleanup functions
-const voiceCleanup = require('./deleteExpiredVoiceMessages.js')
-
-initializeApp()
+// Temporarily disabled due to module-level initialization issue
+// const voiceCleanup = require('./deleteExpiredVoiceMessages.js')
 
 /**
  * Triggered when a new chat message lands in any room.
@@ -91,8 +95,9 @@ exports.onChatMessage = onValueCreated(
 )
 
 // Export voice message cleanup functions
-exports.deleteExpiredVoiceMessages = voiceCleanup.deleteExpiredVoiceMessages
-exports.cleanupExpiredVoiceMessagesHttp = voiceCleanup.cleanupExpiredVoiceMessagesHttp
+// Temporarily disabled due to module-level initialization issue
+// exports.deleteExpiredVoiceMessages = voiceCleanup.deleteExpiredVoiceMessages
+// exports.cleanupExpiredVoiceMessagesHttp = voiceCleanup.cleanupExpiredVoiceMessagesHttp
 
 // Admin callables (custom-claim gated)
 const adminFns = require('./admin.js')
