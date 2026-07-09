@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore'
-import { ChevronDown, ChevronUp, Megaphone, Send, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, FlaskConical, Megaphone, Send, Trash2 } from 'lucide-react'
 import { auth, firestore } from '../../lib/firebase.js'
 import { AppModal } from '../../components/AppModal.jsx'
 import { broadcast, deleteNotification, updateNotification } from './adminApi.js'
@@ -23,6 +23,7 @@ export function AdminBroadcastTab({ showToast }) {
   const [url, setUrl] = useState('')
   const [toUid, setToUid] = useState('')
   const [sending, setSending] = useState(false)
+  const [testSending, setTestSending] = useState(false)
   const [annText, setAnnText] = useState('')
   const [annActive, setAnnActive] = useState(false)
   const [annLoaded, setAnnLoaded] = useState(false)
@@ -61,6 +62,21 @@ export function AdminBroadcastTab({ showToast }) {
       showToast(`Broadcast failed: ${err.message}`)
     } finally {
       setSending(false)
+    }
+  }
+
+  async function sendTest() {
+    if (!title.trim() || !body.trim()) { showToast('Title and body required'); return }
+    const myUid = auth.currentUser?.uid
+    if (!myUid) { showToast('Not signed in'); return }
+    setTestSending(true)
+    try {
+      const res = await broadcast(title.trim(), body.trim(), url.trim() || undefined, myUid)
+      showToast(res.sent ? 'Test push sent to your devices' : 'No devices registered for you')
+    } catch (err) {
+      showToast(`Test failed: ${err.message}`)
+    } finally {
+      setTestSending(false)
     }
   }
 
@@ -138,10 +154,16 @@ export function AdminBroadcastTab({ showToast }) {
             value={url} onChange={(e) => setUrl(e.target.value)} />
           <input className="field-in" placeholder="Target uid (blank = everyone)"
             value={toUid} onChange={(e) => setToUid(e.target.value)} />
-          <button onClick={send} disabled={sending}
-            className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
-            <Send size={14} /> {sending ? 'Sending…' : 'Send broadcast'}
-          </button>
+          <div className="flex gap-2">
+            <button onClick={sendTest} disabled={testSending}
+              className="flex-1 py-3 bg-white border border-stone-200 text-stone-700 text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2 hover:bg-stone-50">
+              <FlaskConical size={14} /> {testSending ? 'Sending…' : 'Send test to me'}
+            </button>
+            <button onClick={send} disabled={sending}
+              className="flex-1 py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
+              <Send size={14} /> {sending ? 'Sending…' : 'Send broadcast'}
+            </button>
+          </div>
         </div>
       </section>
 
