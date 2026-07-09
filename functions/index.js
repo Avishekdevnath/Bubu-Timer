@@ -56,14 +56,14 @@ exports.onChatMessage = onValueCreated(
 
     const message = {
       tokens,
-      data: { title, body, url: '/buddy', roomCode: code, msgId },
+      data: { title, body, url: '/buddy', roomCode: code, msgId, tag: `bubu-chat-${msgId}` },
       webpush: {
         notification: {
           title,
           body,
           icon: '/icon-192.png',
           badge: '/icon-192.png',
-          tag: 'bubu-chat',
+          tag: `bubu-chat-${msgId}`,
         },
         fcm_options: { link: '/buddy' },
       },

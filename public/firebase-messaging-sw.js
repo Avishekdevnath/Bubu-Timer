@@ -22,11 +22,12 @@ messaging.onBackgroundMessage((payload) => {
   const title = data.title || 'New message'
   const body = data.body || ''
   const url = data.url || '/buddy'
+  const tag = data.tag || `bubu-${Date.now()}`
   self.registration.showNotification(title, {
     body,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-    tag: 'bubu-chat',
+    tag,
     data: { url },
     vibrate: [200, 100, 200, 100, 200],
     silent: false,
