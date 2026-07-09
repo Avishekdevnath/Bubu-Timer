@@ -25,6 +25,7 @@ export function AdminRoomsTab({ showToast }) {
   const [createCode, setCreateCode] = useState(() => genRoomCode())
   const [createName, setCreateName] = useState('')
   const [creatingRoom, setCreatingRoom] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
 
   useEffect(() => {
     const unsub = onValue(ref(database, 'rooms'),
@@ -80,6 +81,7 @@ export function AdminRoomsTab({ showToast }) {
       else await kickMember(code, slot)
       showToast(kind === 'close' ? `Room ${code} closed` : kind === 'clear' ? `Chat cleared in ${code}` : `Kicked slot ${slot} from ${code}`)
       setConfirm(null)
+      setConfirmText('')
     } catch (err) {
       showToast(`Failed: ${err.message}`)
     } finally {
@@ -123,7 +125,7 @@ export function AdminRoomsTab({ showToast }) {
                   className="p-2 rounded-full border border-stone-200 text-stone-500 hover:bg-stone-50" title="Clear chat" aria-label={`Clear chat in room ${code}`}>
                   <Eraser size={14} />
                 </button>
-                <button onClick={() => setConfirm({ kind: 'close', code })}
+                <button onClick={() => { setConfirm({ kind: 'close', code }); setConfirmText('') }}
                   className="p-2 rounded-full border border-red-200 text-red-500 hover:bg-red-50" title="Close room" aria-label={`Close room ${code}`}>
                   <DoorClosed size={14} />
                 </button>
@@ -195,8 +197,12 @@ export function AdminRoomsTab({ showToast }) {
             {confirm.kind === 'clear' && 'Deletes every chat message in this room. Members and settings survive. Cannot be undone.'}
             {confirm.kind === 'kick' && 'Removes this member from the room. Chat history and the other member stay. They can rejoin with the room code if it stays open.'}
           </p>
-          <button onClick={runConfirm} disabled={busy}
-            className="w-full py-3 bg-red-600 text-white text-sm font-semibold rounded-xl disabled:opacity-40">
+          {confirm.kind === 'close' && (
+            <input className="field-in" placeholder={`Type ${confirm.code} to confirm`}
+              value={confirmText} onChange={(e) => setConfirmText(e.target.value.toUpperCase())} />
+          )}
+          <button onClick={runConfirm} disabled={busy || (confirm.kind === 'close' && confirmText !== confirm.code)}
+            className="w-full py-3 mt-2 bg-red-600 text-white text-sm font-semibold rounded-xl disabled:opacity-40">
             {confirm.kind === 'close' ? 'Close room' : confirm.kind === 'clear' ? 'Clear chat' : 'Kick member'}
           </button>
         </AppModal>
