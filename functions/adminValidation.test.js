@@ -1,6 +1,6 @@
 const test = require('node:test')
 const assert = require('node:assert')
-const { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast } = require('./adminValidation.js')
+const { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast, validateEmailMessage, escapeHtml } = require('./adminValidation.js')
 
 test('requireString accepts and trims a normal string', () => {
   assert.strictEqual(requireString('  abc  ', 'uid', 200), 'abc')
@@ -80,4 +80,31 @@ test('requirePassword accepts 6+ chars', () => {
 test('requirePassword rejects short or empty', () => {
   assert.throws(() => requirePassword('abc'), /at least 6 characters/)
   assert.throws(() => requirePassword(''), /password must be/)
+})
+
+test('validateEmailMessage trims and returns subject/body', () => {
+  assert.deepStrictEqual(
+    validateEmailMessage({ subject: ' Hi ', body: ' There ' }),
+    { subject: 'Hi', body: 'There', toUid: null },
+  )
+})
+
+test('validateEmailMessage enforces limits', () => {
+  assert.throws(() => validateEmailMessage({ subject: 'x'.repeat(201), body: 'ok' }), /subject too long/)
+  assert.throws(() => validateEmailMessage({ subject: 'ok', body: 'x'.repeat(5001) }), /body too long/)
+  assert.throws(() => validateEmailMessage({ subject: '', body: 'ok' }), /subject must be a non-empty string/)
+})
+
+test('validateEmailMessage defaults toUid to null, accepts a valid one', () => {
+  assert.strictEqual(validateEmailMessage({ subject: 'a', body: 'b' }).toUid, null)
+  assert.strictEqual(validateEmailMessage({ subject: 'a', body: 'b', toUid: '' }).toUid, null)
+  assert.strictEqual(validateEmailMessage({ subject: 'a', body: 'b', toUid: ' uid123 ' }).toUid, 'uid123')
+})
+
+test('escapeHtml escapes the five reserved characters', () => {
+  assert.strictEqual(escapeHtml(`<b>"a" & 'b'</b>`), '&lt;b&gt;&quot;a&quot; &amp; &#39;b&#39;&lt;/b&gt;')
+})
+
+test('escapeHtml leaves plain text unchanged', () => {
+  assert.strictEqual(escapeHtml('hello world 123'), 'hello world 123')
 })

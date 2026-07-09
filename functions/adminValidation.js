@@ -41,4 +41,23 @@ function validateBroadcast(data) {
   return { title, body, url, toUid }
 }
 
-module.exports = { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast }
+function validateEmailMessage(data) {
+  const subject = requireString(data?.subject, 'subject', 200)
+  const body = requireString(data?.body, 'body', 5000)
+  let toUid = null
+  if (data?.toUid != null && String(data.toUid).trim() !== '') {
+    toUid = requireString(data.toUid, 'toUid', 200)
+  }
+  return { subject, body, toUid }
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+module.exports = { requireString, requireSlot, requireEmail, requirePassword, validateBroadcast, validateEmailMessage, escapeHtml }
