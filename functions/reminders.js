@@ -23,6 +23,11 @@ function isExpired(reminder, dateStr) {
   return dateStr > reminder.endDate
 }
 
+function isNotStarted(reminder, dateStr) {
+  if (!reminder.startDate) return false
+  return dateStr < reminder.startDate
+}
+
 // reminder.toUid is null (everyone), a single uid string, or an array of uids
 // (multi-user targeting). Normalizes to an array of uids, or null for everyone.
 function targetUidList(toUid) {
@@ -149,6 +154,7 @@ const checkReminders = onSchedule(
           await doc.ref.update({ active: false })
           continue
         }
+        if (isNotStarted(reminder, dateStr)) continue
         if (reminder.lastFiredDate === dateStr) continue
         if (!isDueNow(reminder, hour, minute)) continue
 
@@ -162,4 +168,4 @@ const checkReminders = onSchedule(
   },
 )
 
-module.exports = { isDueNow, isExpired, checkReminders }
+module.exports = { isDueNow, isExpired, isNotStarted, checkReminders }

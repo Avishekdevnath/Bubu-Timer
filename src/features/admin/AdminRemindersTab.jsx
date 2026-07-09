@@ -11,8 +11,9 @@ function pad2(n) { return String(n).padStart(2, '0') }
 
 function scheduleSummary(r) {
   const time = `${pad2(r.timeHour)}:${pad2(r.timeMinute)}`
+  const from = r.startDate ? `from ${r.startDate}` : 'from today'
   const until = r.endDate ? `until ${r.endDate}` : 'forever'
-  return `Daily at ${time} · ${until}`
+  return `Daily at ${time} · ${from} · ${until}`
 }
 
 export function AdminRemindersTab({ showToast }) {
@@ -21,7 +22,9 @@ export function AdminRemindersTab({ showToast }) {
   const [users, setUsers] = useState(null)
   const [targetUsers, setTargetUsers] = useState([])
   const [timeValue, setTimeValue] = useState('08:00')
+  const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [forever, setForever] = useState(true)
   const [creating, setCreating] = useState(false)
   const [reminders, setReminders] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null) // reminder id
@@ -47,11 +50,12 @@ export function AdminRemindersTab({ showToast }) {
         toUid: targetUsers.length > 0 ? targetUsers.map((u) => u.uid) : null,
         timeHour: h,
         timeMinute: m,
-        endDate: endDate || null,
+        startDate: startDate || null,
+        endDate: forever ? null : (endDate || null),
         active: true,
       })
       showToast('Reminder created')
-      setTitle(''); setBody(''); setTargetUsers([]); setEndDate('')
+      setTitle(''); setBody(''); setTargetUsers([]); setStartDate(''); setEndDate(''); setForever(true)
     } catch (err) {
       showToast(`Create failed: ${err.message}`)
     } finally {
@@ -88,13 +92,25 @@ export function AdminRemindersTab({ showToast }) {
           <textarea className="field-in resize-none" rows={2} placeholder="Message" maxLength={500}
             value={body} onChange={(e) => setBody(e.target.value)} />
           <MultiUserPicker users={users} value={targetUsers} onChange={setTargetUsers} />
+          <input type="time" className="field-in w-auto" value={timeValue} onChange={(e) => setTimeValue(e.target.value)}
+            aria-label="Time (any hour and minute, repeats daily)" />
           <div className="flex gap-2">
-            <input type="time" className="field-in w-auto" value={timeValue} onChange={(e) => setTimeValue(e.target.value)}
-              aria-label="Time (any hour and minute, repeats daily)" />
-            <input type="date" className="field-in flex-1" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-              aria-label="End date (optional, blank = forever)" />
+            <label className="flex-1">
+              <span className="block text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-1 px-1">Starts</span>
+              <input type="date" className="field-in w-full" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                aria-label="Start date (optional, blank = starts today)" placeholder="Today" />
+            </label>
+            <label className="flex-1">
+              <span className="block text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-1 px-1">Ends</span>
+              <input type="date" className="field-in w-full disabled:opacity-40" value={endDate} disabled={forever}
+                onChange={(e) => setEndDate(e.target.value)} aria-label="End date" />
+            </label>
           </div>
-          <p className="text-xs text-stone-400 px-1">Repeats every day at this time. Fires within 15 minutes of it — exact minute isn't guaranteed.</p>
+          <label className="flex items-center gap-2 px-1 text-sm text-stone-600">
+            <input type="checkbox" checked={forever} onChange={(e) => setForever(e.target.checked)} />
+            Repeat forever (until stopped manually)
+          </label>
+          <p className="text-xs text-stone-400 px-1">Repeats every day at this time. Fires within 15 minutes of it — exact minute isn't guaranteed. Blank start = begins today.</p>
           <button onClick={create} disabled={creating}
             className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
             <AlarmClock size={14} /> {creating ? 'Creating…' : 'Create reminder'}
