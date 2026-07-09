@@ -111,3 +111,4 @@ exports.adminSetUserDisabled = adminFns.adminSetUserDisabled
 exports.adminKickMember = adminFns.adminKickMember
 exports.adminUpdateUserProfile = adminFns.adminUpdateUserProfile
 exports.adminCreateUser = adminFns.adminCreateUser
+exports.adminSendEmail = adminFns.adminSendEmail
