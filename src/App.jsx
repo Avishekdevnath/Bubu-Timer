@@ -42,6 +42,7 @@ const StarredPage        = lazy(() => import('./pages/StarredPage.jsx').then(m =
 const ChecklistsPage     = lazy(() => import('./pages/ChecklistsPage.jsx').then(m => ({ default: m.ChecklistsPage })))
 const PlanHistoryPage    = lazy(() => import('./pages/PlanHistoryPage.jsx').then(m => ({ default: m.PlanHistoryPage })))
 const AdminPage          = lazy(() => import('./pages/AdminPage.jsx').then(m => ({ default: m.AdminPage })))
+const NotificationsPage  = lazy(() => import('./pages/NotificationsPage.jsx').then(m => ({ default: m.NotificationsPage })))
 import { SubjectModal } from './features/subjects/SubjectModal.jsx'
 import { ReportModal } from './features/reports/ReportModal.jsx'
 import { ConfirmReset } from './components/ConfirmReset.jsx'
@@ -729,6 +730,11 @@ function App() {
             <Route path="/admin" element={
               authLoading ? null : (currentUser && !currentUser.isGuest
                 ? (isAdmin ? <AdminPage showToast={showToast} currentUser={currentUser} /> : <Navigate to="/home" replace />)
+                : <Navigate to="/home" replace />)
+            } />
+            <Route path="/notifications" element={
+              authLoading ? null : (currentUser && !currentUser.isGuest
+                ? <NotificationsPage notifData={notifData} />
                 : <Navigate to="/home" replace />)
             } />
             <Route path="*" element={<Navigate to="/home" replace />} />
