@@ -19,9 +19,16 @@ function scheduleSummary(r) {
 
 function fireSummary(r) {
   const count = r.fireCount || 0
-  if (count === 0) return 'Never triggered yet'
+  if (count === 0) return 'Never fired on schedule yet'
   const when = r.lastFiredAt?.toDate ? r.lastFiredAt.toDate().toLocaleString() : 'unknown time'
-  return `Triggered ${count}× · last ${when}`
+  return `Fired ${count}× on schedule · last ${when}`
+}
+
+function testSendSummary(r) {
+  const count = r.testSendCount || 0
+  if (count === 0) return null
+  const when = r.lastTestSentAt?.toDate ? r.lastTestSentAt.toDate().toLocaleString() : 'unknown time'
+  return `Tested ${count}× via Send now · last ${when}`
 }
 
 export function AdminRemindersTab({ showToast }) {
@@ -165,6 +172,7 @@ export function AdminRemindersTab({ showToast }) {
                       {scheduleSummary(r)} · {targetLabel}
                     </p>
                     <p className="text-xs text-stone-300 truncate">{fireSummary(r)}</p>
+                    {testSendSummary(r) && <p className="text-xs text-stone-300 truncate">{testSendSummary(r)}</p>}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <button onClick={() => startEdit(r)}
