@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { addDoc, collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore'
-import { ChevronDown, ChevronUp, FlaskConical, Megaphone, Send, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronUp, FlaskConical, Megaphone, Plus, Send, Trash2 } from 'lucide-react'
 import { auth, firestore } from '../../lib/firebase.js'
 import { AppModal } from '../../components/AppModal.jsx'
 import { UserPicker } from '../../components/UserPicker.jsx'
@@ -36,6 +36,7 @@ export function AdminBroadcastTab({ showToast }) {
   const [savingId, setSavingId] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null) // notif id
   const [resendConfirm, setResendConfirm] = useState(false)
+  const [composeOpen, setComposeOpen] = useState(false)
   const lastSentRef = useRef(null) // { title, at }
 
   useEffect(() => {
@@ -64,7 +65,7 @@ export function AdminBroadcastTab({ showToast }) {
       const res = await broadcast(title.trim(), body.trim(), url.trim() || undefined, targetUser?.uid || undefined)
       showToast(`Sent to ${res.sent}/${res.tokens} devices${res.failed ? ` (${res.failed} failed)` : ''}`)
       lastSentRef.current = { title: title.trim(), at: Date.now() }
-      setTitle(''); setBody(''); setUrl(''); setTargetUser(null)
+      setTitle(''); setBody(''); setUrl(''); setTargetUser(null); setComposeOpen(false)
     } catch (err) {
       showToast(`Broadcast failed: ${err.message}`)
     } finally {
@@ -163,29 +164,6 @@ export function AdminBroadcastTab({ showToast }) {
   return (
     <div className="space-y-4">
       <section>
-        <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Push to all devices</p>
-        <div className="bg-white border border-stone-100 rounded-2xl shadow-sm p-4 space-y-2">
-          <input className="field-in" placeholder="Title (max 100)" maxLength={100}
-            value={title} onChange={(e) => setTitle(e.target.value)} />
-          <textarea className="field-in resize-none" rows={3} placeholder="Message (max 500)" maxLength={500}
-            value={body} onChange={(e) => setBody(e.target.value)} />
-          <input className="field-in" placeholder="Link route (default /home)"
-            value={url} onChange={(e) => setUrl(e.target.value)} />
-          <UserPicker users={users} value={targetUser} onChange={setTargetUser} />
-          <div className="flex gap-2">
-            <button onClick={sendTest} disabled={testSending}
-              className="flex-1 py-3 bg-white border border-stone-200 text-stone-700 text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2 hover:bg-stone-50">
-              <FlaskConical size={14} /> {testSending ? 'Sending…' : 'Send test to me'}
-            </button>
-            <button onClick={send} disabled={sending}
-              className="flex-1 py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
-              <Send size={14} /> {sending ? 'Sending…' : 'Send broadcast'}
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section>
         <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Announcement banner</p>
         <div className="bg-white border border-stone-100 rounded-2xl shadow-sm p-4 space-y-3">
           <div className="flex items-center gap-2 text-stone-500 text-xs"><Megaphone size={13} /> Shows at top of app for everyone while active.</div>
@@ -205,7 +183,13 @@ export function AdminBroadcastTab({ showToast }) {
       </section>
 
       <section>
-        <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Sent notifications</p>
+        <div className="flex items-center justify-between mb-2 px-1">
+          <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase">Sent notifications</p>
+          <button onClick={() => setComposeOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-white bg-stone-900 px-3 py-1.5 rounded-full hover:bg-stone-800">
+            <Plus size={12} /> Send broadcast
+          </button>
+        </div>
         <div className="space-y-2">
           {notifs === null && <p className="text-xs text-stone-400 px-1">Loading…</p>}
           {notifs?.length === 0 && <p className="text-xs text-stone-400 px-1">No notifications sent yet</p>}
@@ -244,6 +228,30 @@ export function AdminBroadcastTab({ showToast }) {
           })}
         </div>
       </section>
+
+      {composeOpen && (
+        <AppModal title="Send broadcast" onClose={() => setComposeOpen(false)} wide>
+          <div className="space-y-2">
+            <input className="field-in" placeholder="Title (max 100)" maxLength={100}
+              value={title} onChange={(e) => setTitle(e.target.value)} />
+            <textarea className="field-in resize-none" rows={3} placeholder="Message (max 500)" maxLength={500}
+              value={body} onChange={(e) => setBody(e.target.value)} />
+            <input className="field-in" placeholder="Link route (default /home)"
+              value={url} onChange={(e) => setUrl(e.target.value)} />
+            <UserPicker users={users} value={targetUser} onChange={setTargetUser} />
+            <div className="flex gap-2">
+              <button onClick={sendTest} disabled={testSending}
+                className="flex-1 py-3 bg-white border border-stone-200 text-stone-700 text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2 hover:bg-stone-50">
+                <FlaskConical size={14} /> {testSending ? 'Sending…' : 'Send test to me'}
+              </button>
+              <button onClick={send} disabled={sending}
+                className="flex-1 py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
+                <Send size={14} /> {sending ? 'Sending…' : 'Send broadcast'}
+              </button>
+            </div>
+          </div>
+        </AppModal>
+      )}
 
       {resendConfirm && (
         <AppModal title="Send again?" onClose={() => setResendConfirm(false)}>
