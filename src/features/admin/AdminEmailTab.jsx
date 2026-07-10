@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Mail, Plus } from 'lucide-react'
 import { firestore } from '../../lib/firebase.js'
 import { AppModal } from '../../components/AppModal.jsx'
 import { UserPicker } from '../../components/UserPicker.jsx'
+import { FormattedTextarea } from './FormattedTextarea.jsx'
 import { listUsers, sendEmail } from './adminApi.js'
 
 function relTime(ts) {
@@ -108,8 +109,8 @@ export function AdminEmailTab({ showToast }) {
           <div className="space-y-2">
             <input className="field-in" placeholder="Subject (max 200)" maxLength={200}
               value={subject} onChange={(e) => setSubject(e.target.value)} />
-            <textarea className="field-in resize-y" rows={16} placeholder="Message (max 20,000 characters)" maxLength={20000}
-              value={body} onChange={(e) => setBody(e.target.value)} />
+            <FormattedTextarea rows={16} placeholder="Message (max 20,000 characters)" maxLength={20000}
+              value={body} onChange={setBody} />
             <p className="text-xs text-right text-stone-300 -mt-1">{body.length.toLocaleString()} / 20,000</p>
             <p className="text-xs text-stone-400 leading-relaxed">
               Emoji work anywhere. Formatting: <code># heading</code>, <code>**bold**</code>, <code>*italic*</code>,{' '}

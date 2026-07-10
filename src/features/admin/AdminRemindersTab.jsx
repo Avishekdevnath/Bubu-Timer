@@ -5,6 +5,7 @@ import { firestore } from '../../lib/firebase.js'
 import { AppModal } from '../../components/AppModal.jsx'
 import { SkeletonRows } from '../../components/Skeleton.jsx'
 import { MultiUserPicker } from '../../components/MultiUserPicker.jsx'
+import { FormattedTextarea } from './FormattedTextarea.jsx'
 import { createReminder, deleteReminder, listUsers, sendReminderNow, setReminderActive, updateReminder } from './adminApi.js'
 
 function pad2(n) { return String(n).padStart(2, '0') }
@@ -208,8 +209,8 @@ export function AdminRemindersTab({ showToast }) {
           <div className="space-y-2">
             <input className="field-in" placeholder="Title (e.g. Take your medicine)" maxLength={100}
               value={title} onChange={(e) => setTitle(e.target.value)} />
-            <textarea className="field-in resize-y" rows={8} placeholder="Message (max 20,000 characters)" maxLength={20000}
-              value={body} onChange={(e) => setBody(e.target.value)} />
+            <FormattedTextarea rows={8} placeholder="Message (max 20,000 characters)" maxLength={20000}
+              value={body} onChange={setBody} />
             <p className="text-xs text-right text-stone-300 -mt-1">{body.length.toLocaleString()} / 20,000</p>
             <MultiUserPicker users={users} value={targetUsers} onChange={setTargetUsers} />
             <input type="time" className="field-in w-auto" value={timeValue} onChange={(e) => setTimeValue(e.target.value)}
