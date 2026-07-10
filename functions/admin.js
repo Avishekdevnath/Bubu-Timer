@@ -333,4 +333,74 @@ exports.adminSendEmail = adminCall('sendEmail', async (request) => {
   return { data: { sent, failed, total: perRecipient.length }, target: toUid || 'all', params: { subject, sent, failed } }
 }, { secrets: [RESEND_API_KEY] })
 
+exports.adminRetryFailedEmail = adminCall('retryFailedEmail', async (request) => {
+  const id = requireString(request.data?.id, 'id', 200)
+  const fs = getFirestore()
+  const docRef = fs.doc(`emails/${id}`)
+  const doc = await docRef.get()
+  if (!doc.exists) throw new HttpsError('not-found', 'Email not found')
+  const email = doc.data()
+
+  const failedRecipients = (email.recipients || []).filter((r) => r.status === 'failed')
+  if (failedRecipients.length === 0) throw new HttpsError('failed-precondition', 'No failed recipients to retry')
+
+  const html = `<div style="font-family:-apple-system,Segoe UI,sans-serif;max-width:480px;margin:0 auto;padding:24px">
+<p style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#78716c;margin:0 0 16px">${escapeHtml(EMAIL_FROM_NAME)}</p>
+<div style="font-size:14px;color:#292524;line-height:1.6">${markdownToHtml(email.body)}</div>
+</div>`
+
+  const payload = failedRecipients.map((r) => ({
+    from: `${EMAIL_FROM_NAME} <${EMAIL_FROM}>`,
+    reply_to: EMAIL_REPLY_TO,
+    to: r.email,
+    subject: email.subject,
+    html,
+  }))
+
+  let retriedStatus
+  let batchError = null
+  try {
+    const res = await fetch('https://api.resend.com/emails/batch', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY.value()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+    if (!res.ok) {
+      batchError = await res.text()
+      retriedStatus = failedRecipients.map((r) => ({ uid: r.uid, status: 'failed', resendId: null }))
+    } else {
+      const json = await res.json()
+      const items = json?.data || []
+      retriedStatus = failedRecipients.map((r, i) => ({
+        uid: r.uid,
+        status: items[i]?.id ? 'sent' : 'failed',
+        resendId: items[i]?.id || null,
+      }))
+    }
+  } catch (err) {
+    batchError = err.message
+    retriedStatus = failedRecipients.map((r) => ({ uid: r.uid, status: 'failed', resendId: null }))
+  }
+
+  const statusByUid = new Map(retriedStatus.map((s) => [s.uid, s]))
+  const mergedRecipients = (email.recipients || []).map((r) => {
+    const update = statusByUid.get(r.uid)
+    return update ? { ...r, status: update.status, resendId: update.resendId ?? r.resendId ?? null } : r
+  })
+  const sent = mergedRecipients.filter((r) => r.status === 'sent').length
+  const failed = mergedRecipients.length - sent
+
+  await docRef.update({ recipients: mergedRecipients, sent, failed, error: failed > 0 ? (batchError || email.error || null) : null })
+
+  const retriedSent = retriedStatus.filter((s) => s.status === 'sent').length
+  return {
+    data: { retried: retriedStatus.length, sent: retriedSent, failed: retriedStatus.length - retriedSent },
+    target: id,
+    params: { subject: email.subject, retried: retriedStatus.length },
+  }
+}, { secrets: [RESEND_API_KEY] })
+
 exports.adminCall = adminCall

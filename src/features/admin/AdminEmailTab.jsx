@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
-import { ChevronDown, ChevronUp, Mail, Plus } from 'lucide-react'
+import { ChevronDown, ChevronUp, Mail, Plus, RotateCcw } from 'lucide-react'
 import { firestore } from '../../lib/firebase.js'
 import { AppModal } from '../../components/AppModal.jsx'
 import { UserPicker } from '../../components/UserPicker.jsx'
 import { FormattedTextarea } from './FormattedTextarea.jsx'
-import { listUsers, sendEmail } from './adminApi.js'
+import { listUsers, retryFailedEmail, sendEmail } from './adminApi.js'
 
 function relTime(ts) {
   const ms = ts?.toMillis ? ts.toMillis() : ts || 0
@@ -28,6 +28,7 @@ export function AdminEmailTab({ showToast }) {
   const [emails, setEmails] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
   const [composeOpen, setComposeOpen] = useState(false)
+  const [retryingId, setRetryingId] = useState(null)
 
   useEffect(() => {
     listUsers().then((res) => setUsers(res.users)).catch(() => {})
@@ -49,6 +50,18 @@ export function AdminEmailTab({ showToast }) {
       showToast(`Email failed: ${err.message}`)
     } finally {
       setSending(false)
+    }
+  }
+
+  async function retry(id) {
+    setRetryingId(id)
+    try {
+      const res = await retryFailedEmail(id)
+      showToast(`Retried ${res.retried}: ${res.sent} sent${res.failed ? `, ${res.failed} still failed` : ''}`)
+    } catch (err) {
+      showToast(`Retry failed: ${err.message}`)
+    } finally {
+      setRetryingId(null)
     }
   }
 
@@ -88,7 +101,16 @@ export function AdminEmailTab({ showToast }) {
                     )}
                     {e.recipients?.length > 0 && (
                       <div>
-                        <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-1">Recipients</p>
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase">Recipients</p>
+                          {e.failed > 0 && (
+                            <button onClick={() => retry(e.id)} disabled={retryingId === e.id}
+                              className="flex items-center gap-1 text-xs font-semibold text-red-500 hover:text-red-600 disabled:opacity-40">
+                              <RotateCcw size={11} className={retryingId === e.id ? 'animate-spin' : ''} />
+                              {retryingId === e.id ? 'Retrying…' : `Retry failed (${e.failed})`}
+                            </button>
+                          )}
+                        </div>
                         {e.recipients.map((r) => (
                           <p key={r.uid} className="text-xs text-stone-500">
                             {r.email} — <span className={r.status === 'sent' ? 'text-emerald-600' : 'text-red-500'}>{r.status}</span>

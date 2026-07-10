@@ -112,6 +112,7 @@ exports.adminKickMember = adminFns.adminKickMember
 exports.adminUpdateUserProfile = adminFns.adminUpdateUserProfile
 exports.adminCreateUser = adminFns.adminCreateUser
 exports.adminSendEmail = adminFns.adminSendEmail
+exports.adminRetryFailedEmail = adminFns.adminRetryFailedEmail
 
 // Daily reminders (scheduled) + manual admin trigger
 const reminderFns = require('./reminders.js')
