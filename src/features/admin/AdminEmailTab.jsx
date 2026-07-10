@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
-import { ChevronDown, ChevronUp, Mail } from 'lucide-react'
+import { ChevronDown, ChevronUp, Mail, Plus } from 'lucide-react'
 import { firestore } from '../../lib/firebase.js'
+import { AppModal } from '../../components/AppModal.jsx'
 import { UserPicker } from '../../components/UserPicker.jsx'
 import { listUsers, sendEmail } from './adminApi.js'
 
@@ -25,6 +26,7 @@ export function AdminEmailTab({ showToast }) {
   const [sending, setSending] = useState(false)
   const [emails, setEmails] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
+  const [composeOpen, setComposeOpen] = useState(false)
 
   useEffect(() => {
     listUsers().then((res) => setUsers(res.users)).catch(() => {})
@@ -41,7 +43,7 @@ export function AdminEmailTab({ showToast }) {
     try {
       const res = await sendEmail(subject.trim(), body.trim(), targetUser?.uid)
       showToast(`Sent to ${res.sent}/${res.total} recipients${res.failed ? ` (${res.failed} failed)` : ''}`)
-      setSubject(''); setBody(''); setTargetUser(null)
+      setSubject(''); setBody(''); setTargetUser(null); setComposeOpen(false)
     } catch (err) {
       showToast(`Email failed: ${err.message}`)
     } finally {
@@ -52,28 +54,13 @@ export function AdminEmailTab({ showToast }) {
   return (
     <div className="space-y-4">
       <section>
-        <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Compose email</p>
-        <div className="bg-white border border-stone-100 rounded-2xl shadow-sm p-4 space-y-2">
-          <input className="field-in" placeholder="Subject (max 200)" maxLength={200}
-            value={subject} onChange={(e) => setSubject(e.target.value)} />
-          <textarea className="field-in resize-y" rows={16} placeholder="Message (max 20,000 characters)" maxLength={20000}
-            value={body} onChange={(e) => setBody(e.target.value)} />
-          <p className="text-xs text-right text-stone-300 px-1 -mt-1">{body.length.toLocaleString()} / 20,000</p>
-          <p className="text-xs text-stone-400 px-1 leading-relaxed">
-            Emoji work anywhere. Formatting: <code># heading</code>, <code>**bold**</code>, <code>*italic*</code>,{' '}
-            <code>~~strikethrough~~</code>, <code>`code`</code>, <code>[link](https://url)</code>, <code>&gt; quote</code>,{' '}
-            <code>---</code> divider, <code>- </code> bullet list, <code>1. </code> numbered list.
-          </p>
-          <UserPicker users={users} value={targetUser} onChange={setTargetUser} />
-          <button onClick={send} disabled={sending}
-            className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
-            <Mail size={14} /> {sending ? 'Sending…' : 'Send email'}
+        <div className="flex items-center justify-between mb-2 px-1">
+          <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase">Sent emails</p>
+          <button onClick={() => setComposeOpen(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-white bg-stone-900 px-3 py-1.5 rounded-full hover:bg-stone-800">
+            <Plus size={12} /> Compose email
           </button>
         </div>
-      </section>
-
-      <section>
-        <p className="text-[10px] font-bold tracking-widest text-stone-400 uppercase mb-2 px-1">Sent emails</p>
         <div className="space-y-2">
           {emails === null && <p className="text-xs text-stone-400 px-1">Loading…</p>}
           {emails?.length === 0 && <p className="text-xs text-stone-400 px-1">No emails sent yet</p>}
@@ -115,6 +102,28 @@ export function AdminEmailTab({ showToast }) {
           })}
         </div>
       </section>
+
+      {composeOpen && (
+        <AppModal title="Compose email" onClose={() => setComposeOpen(false)} wide>
+          <div className="space-y-2">
+            <input className="field-in" placeholder="Subject (max 200)" maxLength={200}
+              value={subject} onChange={(e) => setSubject(e.target.value)} />
+            <textarea className="field-in resize-y" rows={16} placeholder="Message (max 20,000 characters)" maxLength={20000}
+              value={body} onChange={(e) => setBody(e.target.value)} />
+            <p className="text-xs text-right text-stone-300 -mt-1">{body.length.toLocaleString()} / 20,000</p>
+            <p className="text-xs text-stone-400 leading-relaxed">
+              Emoji work anywhere. Formatting: <code># heading</code>, <code>**bold**</code>, <code>*italic*</code>,{' '}
+              <code>~~strikethrough~~</code>, <code>`code`</code>, <code>[link](https://url)</code>, <code>&gt; quote</code>,{' '}
+              <code>---</code> divider, <code>- </code> bullet list, <code>1. </code> numbered list.
+            </p>
+            <UserPicker users={users} value={targetUser} onChange={setTargetUser} />
+            <button onClick={send} disabled={sending}
+              className="w-full py-3 bg-stone-900 text-white text-sm font-semibold rounded-xl disabled:opacity-40 flex items-center justify-center gap-2">
+              <Mail size={14} /> {sending ? 'Sending…' : 'Send email'}
+            </button>
+          </div>
+        </AppModal>
+      )}
     </div>
   )
 }
