@@ -3,6 +3,7 @@ import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'reac
 import {
   AlarmClock,
   Bell,
+  BookOpen,
   ChevronDown,
   ChevronUp,
   Home,
@@ -53,6 +54,7 @@ const PlanHistoryPage    = lazy(() => import('./pages/PlanHistoryPage.jsx').then
 const AdminPage          = lazy(() => import('./pages/AdminPage.jsx').then(m => ({ default: m.AdminPage })))
 const NotificationsPage  = lazy(() => import('./pages/NotificationsPage.jsx').then(m => ({ default: m.NotificationsPage })))
 const NotificationDetailPage = lazy(() => import('./pages/NotificationDetailPage.jsx').then(m => ({ default: m.NotificationDetailPage })))
+const VocabPage           = lazy(() => import('./pages/VocabPage.jsx').then(m => ({ default: m.VocabPage })))
 import { SubjectModal } from './features/subjects/SubjectModal.jsx'
 import { ReportModal } from './features/reports/ReportModal.jsx'
 import { ConfirmReset } from './components/ConfirmReset.jsx'
@@ -65,6 +67,7 @@ import { useNotifications } from './features/notifications/useNotifications.js'
 const tabs = [
   { label: 'Home', path: '/home', icon: Home },
   { label: 'Plan', path: '/', icon: Timer },
+  { label: 'Vocab', path: '/vocab', icon: BookOpen },
   { label: 'Chat', path: '/buddy', icon: MessageCircle },
   { label: 'Settings', path: '/settings', icon: Settings },
 ]
@@ -303,7 +306,7 @@ function App() {
             setAppState((prev) => {
               const merged = mergeCloudIntoLocal(prev, cloud)
               // Skip re-render if synced fields are identical (our own write came back)
-              const prevKeys = ['subjects','subjectProgress','chapterProgress','dailyPlan','planHistory','futurePlans','dayCutoff']
+              const prevKeys = ['subjects','subjectProgress','chapterProgress','dailyPlan','planHistory','futurePlans','dayCutoff','vocabFavorites']
               const changed = prevKeys.some((k) => JSON.stringify(prev[k]) !== JSON.stringify(merged[k]))
               if (!changed) return prev
               saveStoredState(merged)
@@ -785,6 +788,7 @@ function App() {
               setSubjectModal={setSubjectModal} expanded={expanded} setExpanded={setExpanded}
               patchState={patchState} navigate={navigate} showToast={showToast}
             />} />
+            <Route path="/vocab" element={<VocabPage appState={appState} patchState={patchState} />} />
             <Route path="/settings" element={<SettingsPage
               appState={appState} patchState={patchState} currentUser={currentUser} room={room}
               profileForm={profileForm} setProfileForm={setProfileForm} saveProfile={saveProfile}
