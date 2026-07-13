@@ -29,6 +29,15 @@ describe('parseVocabFilename', () => {
     })
   })
 
+  it('handles a bare space delimiter with no punctuation', () => {
+    expect(parseVocabFilename('O', '531 Ostensible.png')).toEqual({
+      letter: 'O',
+      word: 'Ostensible',
+      filename: '531 Ostensible.png',
+      number: 531,
+    })
+  })
+
   it('handles no space after the period', () => {
     expect(parseVocabFilename('C', '228.Culminate.png')).toEqual({
       letter: 'C',
