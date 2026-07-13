@@ -18,6 +18,8 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:13147084238:web:68c48e8345aeaf29d4879f',
 }
 
+export const storageBucket = firebaseConfig.storageBucket
+
 export const firebaseApp = initializeApp(firebaseConfig)
 export const auth = getAuth(firebaseApp)
 export const database = getDatabase(firebaseApp)
