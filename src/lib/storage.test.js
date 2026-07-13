@@ -27,4 +27,14 @@ describe('loadStoredState v2 migration', () => {
   it('returns default when empty', () => {
     expect(loadStoredState().version).toBe(2)
   })
+
+  it('restores vocabFavorites from saved state', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ vocabFavorites: ['A/Abase'] }))
+    expect(loadStoredState().vocabFavorites).toEqual(['A/Abase'])
+  })
+
+  it('defaults vocabFavorites to an empty array when missing', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({}))
+    expect(loadStoredState().vocabFavorites).toEqual([])
+  })
 })

@@ -32,6 +32,7 @@ export const SYNCED_FIELDS = [
   'planHistory',
   'futurePlans',
   'dayCutoff',
+  'vocabFavorites',
 ]
 
 let pushTimer = null

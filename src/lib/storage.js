@@ -16,6 +16,7 @@ export function loadStoredState() {
       dailyPlan: saved.version === STATE_VERSION && saved.dailyPlan ? saved.dailyPlan : null,
       planHistory: saved.version === STATE_VERSION && Array.isArray(saved.planHistory) ? saved.planHistory : [],
       futurePlans: saved.futurePlans && typeof saved.futurePlans === 'object' ? saved.futurePlans : {},
+      vocabFavorites: Array.isArray(saved.vocabFavorites) ? saved.vocabFavorites : [],
     }
   } catch {
     return createDefaultState()

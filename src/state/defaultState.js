@@ -16,5 +16,6 @@ export function createDefaultState() {
     dailyPlan: null,
     planHistory: [],
     futurePlans: {},
+    vocabFavorites: [],
   }
 }
